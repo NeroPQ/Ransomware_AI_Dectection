@@ -244,7 +244,11 @@ Read the [fixed protocol](docs/DETECTION_QUALITY_PROTOCOL.md),
 The classifier's success on shared templates is not a real-world accuracy claim.
 The hybrid's substantial false alarms are retained as baseline findings.
 
-Use a fresh output directory for each reproducibility run:
+Task 03 retires this published holdout. Reproduce the original frozen result at
+commit `0e69dc1`; current historical replay is isolated from live policy. Do not
+use the published test set for Task 03 policy choices.
+
+Use a fresh output directory for each historical reproducibility run:
 
 ```bash
 export PYTHONPATH=src
@@ -299,3 +303,29 @@ quality. Raw source adapters require their own schema review; no automatic downl
 or real malware execution is implemented. Identical feature names across fixed
 raw-proxy transforms and watcher count-derived symptoms do not prove compatible
 units or observation semantics. Candidate promotion remains manual.
+
+
+## Task 03: behavior semantics and evidence policy
+
+The watcher and offline ablation evaluator now distinguish activity, suspicious
+behavior, possible impact and attributed corroboration. Generic activity volume
+alone does not create an analyst alert. Rule, classifier, anomaly and reviewed
+signature evidence remain visible independently of the four policy stages.
+Containment is a recommendation only; real endpoint actions remain disabled.
+
+Read the [semantics and policy protocol](docs/DETECTION_SEMANTICS_POLICY.md),
+[telemetry v1 contract](docs/TELEMETRY_EVENT_SCHEMA.md) and
+[development/validation report](reports/detection_semantics/report.md).
+Legacy v2 model outputs are shadow-only for v3 decisions until a consistently
+versioned candidate is trained and reviewed. Active artifacts are not replaced.
+
+```bash
+PYTHONPATH=src python -m symptom_ai.benchmark.policy_development \
+  --output /tmp/policy-development-new --seed 310026 --sessions-per-profile 30
+```
+
+This generates eight benign workload types and three scripted positive profiles,
+with 30 sessions/profile and eight simulated one-minute windows/session. It
+compares three explicit policy alternatives on development/validation data only. There is
+no final-test reader and no access to Task 02's retired published holdout. The
+synthetic tradeoffs are not evidence of real-world improvement or readiness.

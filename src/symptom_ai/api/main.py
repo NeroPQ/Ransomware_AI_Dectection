@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import secrets
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 
 import joblib
 import pandas as pd
@@ -18,7 +18,9 @@ from symptom_ai.models.risk_scorer import calculate_symptom_risk
 from symptom_ai.models.unknown_detector_shadow import (
     evaluate_unknown_detector_shadow,
 )
-from symptom_ai.response_engine.response_policy import recommend_response
+from symptom_ai.response_engine.evidence_policy import decide_policy, detector_evidence
+from symptom_ai.telemetry.schema import TelemetryEvent
+from symptom_ai.telemetry.behavior import analyze_events
 from symptom_ai.response_engine.protective_lockdown import (
     run_protective_lockdown,
     unlock_protected_files_demo,
@@ -39,12 +41,13 @@ PROTECTED_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(
     title="AI Ransomware Symptom Learning and Response API",
-    version="0.3.0"
+    version="0.4.0"
 )
 
 
 class SymptomRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    feature_semantics_version: Literal[2, 3] = 2
     symptoms: Dict[str, StrictFloat] = Field(min_length=1, max_length=256)
 
     @field_validator("symptoms")
@@ -189,15 +192,23 @@ def infer(req: SymptomRequest) -> Dict[str, Any]:
 
     risk_score = calculate_symptom_risk(req.symptoms)
 
-    response = recommend_response(
-        symptoms=req.symptoms,
-        unknown_risk=unknown_risk
-    )
+    semantics = metadata.get("feature_semantics_version", 2)
+    evidence_input = {"predicted_label": pred, "prediction_probabilities": probabilities,
+                      "isolation_forest_prediction": iso_pred, "isolation_forest_raw_score": iso_raw,
+                      "unknown_detector_shadow": detector_shadow["calibrated_shadow"],
+                      "model_feature_semantics_version": semantics,
+                      "input_feature_semantics_version": req.feature_semantics_version}
+    detectors = detector_evidence(req.symptoms, ai_result=evidence_input)
+    response = decide_policy(req.symptoms, detectors=detectors)
 
     return {
+        "model_feature_semantics_version": semantics,
+        "input_feature_semantics_version": req.feature_semantics_version,
+        "detector_evidence": detectors,
         "predicted_label": pred,
         "prediction_probabilities": probabilities,
         "risk_score": risk_score,
+        "risk_score_note": "Legacy symptom heuristic for display; not a policy stage or calibrated malware probability",
         "isolation_forest_raw_score": round(iso_raw, 4),
         "isolation_forest_prediction": iso_pred,
         "unknown_detector_mode": detector_shadow["mode"],
@@ -213,7 +224,7 @@ def infer(req: SymptomRequest) -> Dict[str, Any]:
 def root():
     return {
         "system": "AI Ransomware Symptom Learning and Response API",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "status": "running"
     }
 
@@ -236,6 +247,8 @@ def model_info():
         "models": metadata.get("models"),
         "primary_classifier": metadata.get("primary_classifier"),
         "labels": metadata.get("labels"),
+        "feature_schema_version": metadata.get("feature_schema_version"),
+        "feature_semantics_version": metadata.get("feature_semantics_version", 2),
         "feature_count": metadata.get("feature_count"),
         "training_rows": metadata.get("training_rows"),
         "lstm_status": metadata.get("lstm_status")
@@ -245,6 +258,30 @@ def model_info():
 @app.post("/predict")
 def predict(req: SymptomRequest) -> Dict[str, Any]:
     return infer(req)
+
+
+class EventWindowRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    events: list[TelemetryEvent] = Field(min_length=1, max_length=1000)
+
+
+@app.post("/events/evaluate")
+def evaluate_events(req: EventWindowRequest):
+    events = [event.model_dump(mode="json") for event in req.events]
+    try:
+        symptoms, damage = analyze_events(events)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        ai = infer(SymptomRequest(symptoms=symptoms, feature_semantics_version=3))
+    except HTTPException as exc:
+        if exc.status_code != 503:
+            raise
+        ai = {"api_error": "Compatible model unavailable"}
+    detectors = detector_evidence(symptoms, damage, ai)
+    return {"telemetry_schema_version": 1, "feature_semantics_version": 3,
+            "symptoms": symptoms, "observations": damage, "detector_evidence": detectors,
+            "response": decide_policy(symptoms, damage, detectors)}
 
 
 @app.post("/respond", dependencies=[Depends(require_api_key)])

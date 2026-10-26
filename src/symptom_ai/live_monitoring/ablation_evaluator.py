@@ -6,20 +6,14 @@ import json
 import re
 
 from symptom_ai.live_monitoring.live_log_ai_watcher import (
-    HIGH_IMPACT_EVENTS,
     aggregate_symptoms,
     call_ai,
-    decide_alert_type,
     EARLY_DETECTION_ALERT_TYPES,
+    policy_alert_type,
 )
 
-RULE_IMPACT_EVENTS = {
-    "file_rename",
-    "extension_change",
-    "high_entropy_write",
-    "ransom_note_created",
-    "storage_write_spike",
-}
+from symptom_ai.response_engine.evidence_policy import detector_evidence, decide_policy
+from symptom_ai.telemetry.behavior import event_has_possible_impact
 
 
 def load_events(path):
@@ -67,27 +61,16 @@ def is_isolation_forest_anomaly(ai_result):
 
     return (
         prediction_text in {"-1", "anomaly", "outlier"}
-        or ai_result.get("unknown_risk") == "high"
     )
 
 
-def is_rule_detected(damage):
-    counts = damage.get("event_type_counts", {}) or {}
-
-    impact_count = sum(
-        int(counts.get(event_name, 0) or 0)
-        for event_name in RULE_IMPACT_EVENTS
-    )
-
-    return bool(
-        damage.get("has_file_impact")
-        and impact_count >= 3
-    )
+def is_rule_detected(damage, symptoms=None):
+    return detector_evidence(symptoms or {}, damage)["rule"]["hit"]
 
 
 def first_high_impact_event(events):
     for fallback, event in enumerate(events, start=1):
-        if event.get("event_type") in HIGH_IMPACT_EVENTS:
+        if event_has_possible_impact(event):
             return event_index(event, fallback)
 
     return None
@@ -197,6 +180,7 @@ def main():
     classifier_results = []
     classifier_if_results = []
     hybrid_results = []
+    anomaly_results = []
 
     for window_number, window_events in enumerate(
         chunks(usable_events, args.window_events),
@@ -220,17 +204,15 @@ def main():
         policy = response.get("policy")
         unknown_risk = ai_result.get("unknown_risk")
 
-        rule_hit = is_rule_detected(damage)
         classifier_hit = is_classifier_ransomware(ai_result)
         iso_hit = is_isolation_forest_anomaly(ai_result)
         classifier_if_hit = classifier_hit or iso_hit
 
-        hybrid_alert = decide_alert_type(
-            ai_result,
-            damage,
-            policy,
-            unknown_risk,
-        )
+        detectors = detector_evidence(symptoms, damage, ai_result)
+        response = decide_policy(symptoms, damage, detectors)
+        policy = response["policy"]
+        rule_hit = detectors["rule"]["hit"]
+        hybrid_alert = policy_alert_type(response, ai_result)
 
         # An impact-only review is not a successful detector decision.
         hybrid_hit = hybrid_alert in EARLY_DETECTION_ALERT_TYPES
@@ -256,6 +238,9 @@ def main():
             "high_impact_event_count": damage.get(
                 "high_impact_event_count"
             ),
+            "policy_stage": response["stage"],
+            "detector_evidence": detectors,
+            "anomaly_only_detected": iso_hit,
             "rule_only_detected": rule_hit,
             "classifier_only_detected": classifier_hit,
             "classifier_plus_isolation_forest_detected": classifier_if_hit,
@@ -263,6 +248,7 @@ def main():
             "full_hybrid_detected": hybrid_hit,
         })
 
+        anomaly_results.append(iso_hit)
         rule_results.append(rule_hit)
         classifier_results.append(classifier_hit)
         classifier_if_results.append(classifier_if_hit)
@@ -274,8 +260,9 @@ def main():
     case_id = clean_case_id(args.case_id)
 
     result = {
-        "alert_schema_version": 2,
-        "classifier_note": "Classifier methods use the active validation-selected artifact recorded in each window",
+        "alert_schema_version": 3,
+        "feature_semantics_version": 3,
+        "classifier_note": "Raw classifier/anomaly evidence uses the recorded active artifact; incompatible v2 semantics are shadow-only in hybrid policy",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "safety_note": (
             "This evaluator reads safe JSONL simulation logs only. "
@@ -293,6 +280,7 @@ def main():
         "ignored_tail_events": len(events) - len(usable_events),
         "first_high_impact_event_index": first_impact,
         "method_summaries": {
+            "anomaly_only": build_summary("anomaly_only", anomaly_results, rows, args.truth, first_impact),
             "rule_only": build_summary(
                 "rule_only",
                 rule_results,

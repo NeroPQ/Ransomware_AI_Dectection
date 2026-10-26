@@ -11,8 +11,7 @@ import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
 
 from symptom_ai.live_monitoring.benign_workload_runner import workload_profile
-from symptom_ai.live_monitoring.live_log_ai_watcher import aggregate_symptoms
-from symptom_ai.live_monitoring.ablation_evaluator import is_rule_detected
+from symptom_ai.benchmark.legacy_v2 import aggregate_symptoms, is_rule_detected
 from symptom_ai.models.evaluation import feature_matrix, related_groups
 
 BENIGN_PROFILES = ("backup_like", "compression_like", "software_update_like", "cloud_sync_like",

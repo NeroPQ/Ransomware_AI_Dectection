@@ -1,0 +1,1941 @@
+{
+  "fitting": {
+    "anomaly_calibration": {
+      "benign_calibration_rows": 648,
+      "limitation": "Anomalies are not confirmed malware and do not prove zero-day detection",
+      "observed_validation_fpr": 0.05092592592592592,
+      "target_validation_fpr": 0.05,
+      "threshold": -0.5896006078129729,
+      "threshold_comparison": "score_samples < threshold",
+      "training": "benign_only",
+      "training_rows": 1452
+    },
+    "classifier_candidates": {
+      "random_forest": {
+        "accuracy": 1.0,
+        "classification_report": {
+          "accuracy": 1.0,
+          "benign": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 648.0
+          },
+          "known_ransomware_like": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 144.0
+          },
+          "macro avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 792.0
+          },
+          "weighted avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 792.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            648,
+            0
+          ],
+          [
+            0,
+            144
+          ]
+        ],
+        "confusion_matrix_labels": [
+          "benign",
+          "known_ransomware_like"
+        ],
+        "f1": 1.0,
+        "false_positive_rate": 0.0,
+        "per_class_false_positive_rate": {
+          "benign": 0.0,
+          "known_ransomware_like": 0.0
+        },
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "xgboost": {
+        "accuracy": 1.0,
+        "classification_report": {
+          "accuracy": 1.0,
+          "benign": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 648.0
+          },
+          "known_ransomware_like": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 144.0
+          },
+          "macro avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 792.0
+          },
+          "weighted avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 792.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            648,
+            0
+          ],
+          [
+            0,
+            144
+          ]
+        ],
+        "confusion_matrix_labels": [
+          "benign",
+          "known_ransomware_like"
+        ],
+        "f1": 1.0,
+        "false_positive_rate": 0.0,
+        "per_class_false_positive_rate": {
+          "benign": 0.0,
+          "known_ransomware_like": 0.0
+        },
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "classifier_decision": "model.predict argmax; no test-derived threshold",
+    "hybrid_policy": "v1 evidence policy; all alternatives, no test selection",
+    "reviewed_signatures": "disabled in this baseline; no approval database read",
+    "selected_classifier": "random_forest",
+    "selection_rule": "validation macro-F1; RF wins exact tie; fixed model hyperparameters"
+  },
+  "limitations": [
+    "Synthetic dependent templates, labels and corroborating indicators are scripted",
+    "Validation participates in classifier selection and IF calibration; no independent final performance estimate",
+    "Task 02 published final holdout is retired and never read",
+    "No genuine Sysmon, observation confidence calibration or real endpoint-hour/latency measurements",
+    "Corroborating references assert separate observations, not independent trusted sensors",
+    "No production model promotion, response execution, process termination or host isolation"
+  ],
+  "partitions": {
+    "development": {
+      "labels": {
+        "benign": 1452,
+        "known_ransomware_like": 396
+      },
+      "results": {
+        "detectors": {
+          "anomaly_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 0.420863309352518,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 1.7768595041322315,
+            "false_negative": 279,
+            "false_positive": 43,
+            "fpr": 0.029614325068870524,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 0.73125,
+            "recall": 0.29545454545454547,
+            "simulated_benign_endpoint_hours": 24.2,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 46,
+              "eligible_attack_sessions": 66,
+              "median_among_detected": 240.0,
+              "median_impact_lead_among_detected": -120.0,
+              "missed_sessions": 20,
+              "p95_among_detected": 300.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 0.696969696969697
+            },
+            "true_negative": 1409,
+            "true_positive": 117,
+            "windows": 1848
+          },
+          "classifier_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 1.0,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 0.0,
+            "false_negative": 0,
+            "false_positive": 0,
+            "fpr": 0.0,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 1.0,
+            "recall": 1.0,
+            "simulated_benign_endpoint_hours": 24.2,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 66,
+              "eligible_attack_sessions": 66,
+              "median_among_detected": 60.0,
+              "median_impact_lead_among_detected": 60.0,
+              "missed_sessions": 0,
+              "p95_among_detected": 60.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 1.0
+            },
+            "true_negative": 1452,
+            "true_positive": 396,
+            "windows": 1848
+          },
+          "rule_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 0.8,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 0.0,
+            "false_negative": 132,
+            "false_positive": 0,
+            "fpr": 0.0,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "simulated_benign_endpoint_hours": 24.2,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 66,
+              "eligible_attack_sessions": 66,
+              "median_among_detected": 180.0,
+              "median_impact_lead_among_detected": -60.0,
+              "missed_sessions": 0,
+              "p95_among_detected": 180.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 1.0
+            },
+            "true_negative": 1452,
+            "true_positive": 264,
+            "windows": 1848
+          }
+        },
+        "policies": {
+          "analyst_sensitive": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.9850746268656716,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.49586776859504134,
+              "false_negative": 0,
+              "false_positive": 12,
+              "fpr": 0.008264462809917356,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 0.9705882352941176,
+              "recall": 1.0,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 66,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 60.0,
+                "median_impact_lead_among_detected": 60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 60.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 1440,
+              "true_positive": 396,
+              "windows": 1848
+            },
+            "benign_stage_counts": {
+              "analyst_alert": 12,
+              "monitor": 1125,
+              "suspicious_activity": 315
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.6344827586206897,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 212,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.46464646464646464,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 46,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 20,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.696969696969697
+              },
+              "true_negative": 1452,
+              "true_positive": 184,
+              "windows": 1848
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 160
+                },
+                "windows": 160
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 120,
+                  "monitor": 40
+                },
+                "windows": 160
+              },
+              "backup": {
+                "stage_counts": {
+                  "analyst_alert": 2,
+                  "suspicious_activity": 182
+                },
+                "windows": 184
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 148,
+                  "suspicious_activity": 4
+                },
+                "windows": 152
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 207,
+                  "suspicious_activity": 1
+                },
+                "windows": 208
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 177,
+                  "suspicious_activity": 15
+                },
+                "windows": 192
+              },
+              "compression": {
+                "stage_counts": {
+                  "analyst_alert": 10,
+                  "suspicious_activity": 102
+                },
+                "windows": 112
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "analyst_alert": 40,
+                  "containment_recommendation": 80,
+                  "monitor": 40
+                },
+                "windows": 160
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "analyst_alert": 52,
+                  "containment_recommendation": 104,
+                  "monitor": 50,
+                  "suspicious_activity": 2
+                },
+                "windows": 208
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 167,
+                  "suspicious_activity": 9
+                },
+                "windows": 176
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 136
+                },
+                "windows": 136
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 224,
+              "containment_recommendation": 184,
+              "monitor": 1125,
+              "suspicious_activity": 315
+            }
+          },
+          "corroboration_only": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.8,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 132,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 66,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 1452,
+              "true_positive": 264,
+              "windows": 1848
+            },
+            "benign_stage_counts": {
+              "monitor": 1125,
+              "suspicious_activity": 327
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.6344827586206897,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 212,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.46464646464646464,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 46,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 20,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.696969696969697
+              },
+              "true_negative": 1452,
+              "true_positive": 184,
+              "windows": 1848
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 160
+                },
+                "windows": 160
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 80,
+                  "monitor": 40,
+                  "suspicious_activity": 40
+                },
+                "windows": 160
+              },
+              "backup": {
+                "stage_counts": {
+                  "suspicious_activity": 184
+                },
+                "windows": 184
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 148,
+                  "suspicious_activity": 4
+                },
+                "windows": 152
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 207,
+                  "suspicious_activity": 1
+                },
+                "windows": 208
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 177,
+                  "suspicious_activity": 15
+                },
+                "windows": 192
+              },
+              "compression": {
+                "stage_counts": {
+                  "suspicious_activity": 112
+                },
+                "windows": 112
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "containment_recommendation": 80,
+                  "monitor": 40,
+                  "suspicious_activity": 40
+                },
+                "windows": 160
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "containment_recommendation": 104,
+                  "monitor": 50,
+                  "suspicious_activity": 54
+                },
+                "windows": 208
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 167,
+                  "suspicious_activity": 9
+                },
+                "windows": 176
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 136
+                },
+                "windows": 136
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 80,
+              "containment_recommendation": 184,
+              "monitor": 1125,
+              "suspicious_activity": 459
+            }
+          },
+          "evidence_balanced": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.8036253776435045,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 130,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.6717171717171717,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 66,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 1452,
+              "true_positive": 266,
+              "windows": 1848
+            },
+            "benign_stage_counts": {
+              "monitor": 1125,
+              "suspicious_activity": 327
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.6344827586206897,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 212,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.46464646464646464,
+              "simulated_benign_endpoint_hours": 24.2,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 46,
+                "eligible_attack_sessions": 66,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 20,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.696969696969697
+              },
+              "true_negative": 1452,
+              "true_positive": 184,
+              "windows": 1848
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 160
+                },
+                "windows": 160
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 81,
+                  "monitor": 40,
+                  "suspicious_activity": 39
+                },
+                "windows": 160
+              },
+              "backup": {
+                "stage_counts": {
+                  "suspicious_activity": 184
+                },
+                "windows": 184
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 148,
+                  "suspicious_activity": 4
+                },
+                "windows": 152
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 207,
+                  "suspicious_activity": 1
+                },
+                "windows": 208
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 177,
+                  "suspicious_activity": 15
+                },
+                "windows": 192
+              },
+              "compression": {
+                "stage_counts": {
+                  "suspicious_activity": 112
+                },
+                "windows": 112
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "containment_recommendation": 80,
+                  "monitor": 40,
+                  "suspicious_activity": 40
+                },
+                "windows": 160
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "analyst_alert": 1,
+                  "containment_recommendation": 104,
+                  "monitor": 50,
+                  "suspicious_activity": 53
+                },
+                "windows": 208
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 167,
+                  "suspicious_activity": 9
+                },
+                "windows": 176
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 136
+                },
+                "windows": 136
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 82,
+              "containment_recommendation": 184,
+              "monitor": 1125,
+              "suspicious_activity": 457
+            }
+          }
+        }
+      },
+      "sessions": 231,
+      "windows": 1848
+    },
+    "validation": {
+      "labels": {
+        "benign": 648,
+        "known_ransomware_like": 144
+      },
+      "results": {
+        "detectors": {
+          "anomaly_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 0.330188679245283,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 3.0555555555555554,
+            "false_negative": 109,
+            "false_positive": 33,
+            "fpr": 0.05092592592592592,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 0.5147058823529411,
+            "recall": 0.24305555555555555,
+            "simulated_benign_endpoint_hours": 10.8,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 17,
+              "eligible_attack_sessions": 24,
+              "median_among_detected": 180.0,
+              "median_impact_lead_among_detected": -60.0,
+              "missed_sessions": 7,
+              "p95_among_detected": 360.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 0.7083333333333334
+            },
+            "true_negative": 615,
+            "true_positive": 35,
+            "windows": 792
+          },
+          "classifier_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 1.0,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 0.0,
+            "false_negative": 0,
+            "false_positive": 0,
+            "fpr": 0.0,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 1.0,
+            "recall": 1.0,
+            "simulated_benign_endpoint_hours": 10.8,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 24,
+              "eligible_attack_sessions": 24,
+              "median_among_detected": 60.0,
+              "median_impact_lead_among_detected": 60.0,
+              "missed_sessions": 0,
+              "p95_among_detected": 60.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 1.0
+            },
+            "true_negative": 648,
+            "true_positive": 144,
+            "windows": 792
+          },
+          "rule_only": {
+            "benign_endpoint_hours": null,
+            "detection_latency_seconds": null,
+            "f1": 0.8,
+            "false_alerts_per_endpoint_hour": null,
+            "false_alerts_per_simulated_endpoint_hour": 0.0,
+            "false_negative": 48,
+            "false_positive": 0,
+            "fpr": 0.0,
+            "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+            "precision": 1.0,
+            "recall": 0.6666666666666666,
+            "simulated_benign_endpoint_hours": 10.8,
+            "simulated_detection_latency_seconds": {
+              "detected_sessions": 24,
+              "eligible_attack_sessions": 24,
+              "median_among_detected": 180.0,
+              "median_impact_lead_among_detected": -60.0,
+              "missed_sessions": 0,
+              "p95_among_detected": 180.0,
+              "resolution": "window end; missed sessions are censored, never assigned zero latency",
+              "session_detection_rate": 1.0
+            },
+            "true_negative": 648,
+            "true_positive": 96,
+            "windows": 792
+          }
+        },
+        "policies": {
+          "analyst_sensitive": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.9473684210526315,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 1.4814814814814814,
+              "false_negative": 0,
+              "false_positive": 16,
+              "fpr": 0.024691358024691357,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 0.9,
+              "recall": 1.0,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 24,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 60.0,
+                "median_impact_lead_among_detected": 60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 60.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 632,
+              "true_positive": 144,
+              "windows": 792
+            },
+            "benign_stage_counts": {
+              "analyst_alert": 16,
+              "monitor": 447,
+              "suspicious_activity": 185
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.56,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 88,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.3888888888888889,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 14,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 10,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.5833333333333334
+              },
+              "true_negative": 648,
+              "true_positive": 56,
+              "windows": 792
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 80
+                },
+                "windows": 80
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 60,
+                  "monitor": 19,
+                  "suspicious_activity": 1
+                },
+                "windows": 80
+              },
+              "backup": {
+                "stage_counts": {
+                  "analyst_alert": 1,
+                  "suspicious_activity": 55
+                },
+                "windows": 56
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 85,
+                  "suspicious_activity": 3
+                },
+                "windows": 88
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 32
+                },
+                "windows": 32
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 41,
+                  "suspicious_activity": 7
+                },
+                "windows": 48
+              },
+              "compression": {
+                "stage_counts": {
+                  "analyst_alert": 15,
+                  "suspicious_activity": 113
+                },
+                "windows": 128
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "analyst_alert": 20,
+                  "containment_recommendation": 40,
+                  "monitor": 19,
+                  "suspicious_activity": 1
+                },
+                "windows": 80
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "analyst_alert": 8,
+                  "containment_recommendation": 16,
+                  "monitor": 8
+                },
+                "windows": 32
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 64
+                },
+                "windows": 64
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 99,
+                  "suspicious_activity": 5
+                },
+                "windows": 104
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 104,
+              "containment_recommendation": 56,
+              "monitor": 447,
+              "suspicious_activity": 185
+            }
+          },
+          "corroboration_only": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.8,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 48,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.6666666666666666,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 24,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 648,
+              "true_positive": 96,
+              "windows": 792
+            },
+            "benign_stage_counts": {
+              "monitor": 447,
+              "suspicious_activity": 201
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.56,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 88,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.3888888888888889,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 14,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 10,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.5833333333333334
+              },
+              "true_negative": 648,
+              "true_positive": 56,
+              "windows": 792
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 80
+                },
+                "windows": 80
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 40,
+                  "monitor": 19,
+                  "suspicious_activity": 21
+                },
+                "windows": 80
+              },
+              "backup": {
+                "stage_counts": {
+                  "suspicious_activity": 56
+                },
+                "windows": 56
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 85,
+                  "suspicious_activity": 3
+                },
+                "windows": 88
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 32
+                },
+                "windows": 32
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 41,
+                  "suspicious_activity": 7
+                },
+                "windows": 48
+              },
+              "compression": {
+                "stage_counts": {
+                  "suspicious_activity": 128
+                },
+                "windows": 128
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "containment_recommendation": 40,
+                  "monitor": 19,
+                  "suspicious_activity": 21
+                },
+                "windows": 80
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "containment_recommendation": 16,
+                  "monitor": 8,
+                  "suspicious_activity": 8
+                },
+                "windows": 32
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 64
+                },
+                "windows": 64
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 99,
+                  "suspicious_activity": 5
+                },
+                "windows": 104
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 40,
+              "containment_recommendation": 56,
+              "monitor": 447,
+              "suspicious_activity": 249
+            }
+          },
+          "evidence_balanced": {
+            "analyst_alert_or_containment": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.8099173553719008,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 46,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.6805555555555556,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 24,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 0,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 1.0
+              },
+              "true_negative": 648,
+              "true_positive": 98,
+              "windows": 792
+            },
+            "benign_stage_counts": {
+              "monitor": 447,
+              "suspicious_activity": 201
+            },
+            "containment_recommendation": {
+              "benign_endpoint_hours": null,
+              "detection_latency_seconds": null,
+              "f1": 0.56,
+              "false_alerts_per_endpoint_hour": null,
+              "false_alerts_per_simulated_endpoint_hour": 0.0,
+              "false_negative": 88,
+              "false_positive": 0,
+              "fpr": 0.0,
+              "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+              "precision": 1.0,
+              "recall": 0.3888888888888889,
+              "simulated_benign_endpoint_hours": 10.8,
+              "simulated_detection_latency_seconds": {
+                "detected_sessions": 14,
+                "eligible_attack_sessions": 24,
+                "median_among_detected": 180.0,
+                "median_impact_lead_among_detected": -60.0,
+                "missed_sessions": 10,
+                "p95_among_detected": 180.0,
+                "resolution": "window end; missed sessions are censored, never assigned zero latency",
+                "session_detection_rate": 0.5833333333333334
+              },
+              "true_negative": 648,
+              "true_positive": 56,
+              "windows": 792
+            },
+            "per_profile": {
+              "administration": {
+                "stage_counts": {
+                  "monitor": 80
+                },
+                "windows": 80
+              },
+              "ambiguous_impact": {
+                "stage_counts": {
+                  "analyst_alert": 40,
+                  "monitor": 19,
+                  "suspicious_activity": 21
+                },
+                "windows": 80
+              },
+              "backup": {
+                "stage_counts": {
+                  "suspicious_activity": 56
+                },
+                "windows": 56
+              },
+              "build_tools": {
+                "stage_counts": {
+                  "monitor": 85,
+                  "suspicious_activity": 3
+                },
+                "windows": 88
+              },
+              "bulk_file_operations": {
+                "stage_counts": {
+                  "monitor": 32
+                },
+                "windows": 32
+              },
+              "cloud_sync": {
+                "stage_counts": {
+                  "monitor": 41,
+                  "suspicious_activity": 7
+                },
+                "windows": 48
+              },
+              "compression": {
+                "stage_counts": {
+                  "suspicious_activity": 128
+                },
+                "windows": 128
+              },
+              "destructive_with_note": {
+                "stage_counts": {
+                  "analyst_alert": 1,
+                  "containment_recommendation": 40,
+                  "monitor": 19,
+                  "suspicious_activity": 20
+                },
+                "windows": 80
+              },
+              "destructive_with_recovery_tamper": {
+                "stage_counts": {
+                  "analyst_alert": 1,
+                  "containment_recommendation": 16,
+                  "monitor": 8,
+                  "suspicious_activity": 7
+                },
+                "windows": 32
+              },
+              "network_polling": {
+                "stage_counts": {
+                  "monitor": 64
+                },
+                "windows": 64
+              },
+              "software_update": {
+                "stage_counts": {
+                  "monitor": 99,
+                  "suspicious_activity": 5
+                },
+                "windows": 104
+              }
+            },
+            "stage_counts": {
+              "analyst_alert": 42,
+              "containment_recommendation": 56,
+              "monitor": 447,
+              "suspicious_activity": 247
+            }
+          }
+        }
+      },
+      "sessions": 99,
+      "windows": 792
+    }
+  },
+  "protocol": {
+    "alternatives": [
+      "corroboration_only",
+      "evidence_balanced",
+      "analyst_sensitive"
+    ],
+    "default": "evidence_balanced",
+    "implementation_sha256": {
+      "benchmark/__init__.py": "06b63ca0ab0768a3e220ffa704fa3556c97078df9fac542f9307fdd6ecbb7b94",
+      "benchmark/baseline.py": "8b86ec2d2454056398c67491c9e555a6f07d8fff4986a2c0db170469eeed61d1",
+      "benchmark/detectors.py": "891ca143cc66a670e21acee119fe20ad2ab404c88bce3958765b8b11bfb124e6",
+      "benchmark/legacy_v2.py": "835a12bb29b961e3d943b4e4e4ba854618515fb4325d64c73ed8aed0502f5861",
+      "benchmark/policy_development.py": "5162f616d0570d916f09d5368f6b05d0671f05ec827b9d3fbd838c263ba891ae",
+      "benchmark/quality_metrics.py": "683d9a2ca1c234a33b485c62104f2c50bb5a159b1c539bca63ad7315725a7748",
+      "benchmark/sessions.py": "522f1e6ae7696e92c431972e51ca42119a39ec7c85485c700a37f165874c2e64",
+      "benchmark/sources.py": "fa604957f61fb28ee584e3d0d9cc6e27532c9e5002f2c91579bb428337576271",
+      "models/evaluation.py": "e5b8e960afee4148c26012a14d176f3ead294a9b6e8538b66bb8a4bcd52657c7",
+      "models/train_symptom_models.py": "583ba915d153c880785568ff6209e98fcd8ffa234a5448a6e87e26c46fd4599d",
+      "response_engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "response_engine/evidence_policy.py": "8e721d57d09230d273bafbda6270972b13bbc02bd5bd8f2daa3694661070debb",
+      "response_engine/protective_lockdown.py": "08078ac3af630313c14f5b1f6a09ccdc8ed837cd1b8a5c69b43decd4694dccab",
+      "response_engine/response_policy.py": "fe81a1ea4a0161ef036999b788cb0e12d525d1de3e5b6e0f68148bd5857c8882",
+      "telemetry/__init__.py": "83e91ebc4804844c23bf7c1f19c6190edeba1b67a35bd847e9ab36d67453f956",
+      "telemetry/behavior.py": "bebc44cac6782f5be239813992cf2ea03ef144b3e1ded66007eb1634b71c4765",
+      "telemetry/schema.py": "b232f0f8a3507b18146690c6e5368fa90870b32e73d44613779cafd8efb1e87b"
+    },
+    "safety": "Offline pure policy evaluation; no containment APIs, stop signals or endpoint operations",
+    "seed": 310026,
+    "selection": "Semantic default, not a score-selected winner; policies developed on development/validation with a generic-volume context invariant; no independent final estimate",
+    "sessions_per_profile": 30,
+    "source": "synthetic_policy_generator_v1; no external endpoint telemetry",
+    "split": {
+      "group_ids": {
+        "development": [
+          0,
+          8,
+          16,
+          24,
+          32,
+          40,
+          48,
+          56,
+          64,
+          72,
+          80,
+          88,
+          96,
+          112,
+          120,
+          136,
+          144,
+          152,
+          168,
+          176,
+          184,
+          192,
+          200,
+          216,
+          224,
+          232,
+          240,
+          248,
+          256,
+          272,
+          280,
+          288,
+          296,
+          304,
+          320,
+          328,
+          336,
+          344,
+          360,
+          376,
+          384,
+          408,
+          416,
+          424,
+          432,
+          440,
+          448,
+          456,
+          472,
+          488,
+          520,
+          536,
+          544,
+          576,
+          584,
+          592,
+          608,
+          624,
+          640,
+          656,
+          664,
+          672,
+          696,
+          728,
+          736,
+          760,
+          768,
+          776,
+          792,
+          800,
+          808,
+          816,
+          824,
+          840,
+          848,
+          864,
+          888,
+          904,
+          928,
+          952,
+          960,
+          968,
+          976,
+          984,
+          992,
+          1008,
+          1016,
+          1024,
+          1032,
+          1040,
+          1048,
+          1056,
+          1064,
+          1072,
+          1080,
+          1088,
+          1096,
+          1104,
+          1120,
+          1136,
+          1144,
+          1152,
+          1184,
+          1192,
+          1200,
+          1208,
+          1224,
+          1240,
+          1248,
+          1256,
+          1264,
+          1272,
+          1288,
+          1304,
+          1312,
+          1328,
+          1336,
+          1344,
+          1368,
+          1384,
+          1392,
+          1424,
+          1432,
+          1448,
+          1464,
+          1472,
+          1480,
+          1488,
+          1496,
+          1504,
+          1528,
+          1536,
+          1544,
+          1552,
+          1560,
+          1568,
+          1576,
+          1592,
+          1600,
+          1616,
+          1640,
+          1648,
+          1656,
+          1680,
+          1688,
+          1696,
+          1704,
+          1712,
+          1720,
+          1728,
+          1736,
+          1744,
+          1760,
+          1768,
+          1784,
+          1792,
+          1808,
+          1816,
+          1824,
+          1840,
+          1880,
+          1888,
+          1896,
+          1904,
+          1912,
+          1928,
+          1944,
+          1960,
+          1976,
+          1984,
+          2000,
+          2024,
+          2048,
+          2056,
+          2064,
+          2072,
+          2080,
+          2088,
+          2096,
+          2104,
+          2112,
+          2120,
+          2136,
+          2144,
+          2152,
+          2160,
+          2168,
+          2184,
+          2192,
+          2200,
+          2208,
+          2216,
+          2224,
+          2232,
+          2240,
+          2256,
+          2264,
+          2272,
+          2280,
+          2288,
+          2296,
+          2304,
+          2320,
+          2328,
+          2344,
+          2352,
+          2360,
+          2368,
+          2376,
+          2384,
+          2392,
+          2408,
+          2416,
+          2440,
+          2448,
+          2464,
+          2472,
+          2480,
+          2488,
+          2496,
+          2504,
+          2512,
+          2528,
+          2536,
+          2544,
+          2552,
+          2560,
+          2568,
+          2584,
+          2600,
+          2624
+        ],
+        "validation": [
+          104,
+          128,
+          160,
+          208,
+          264,
+          312,
+          352,
+          368,
+          392,
+          400,
+          464,
+          480,
+          496,
+          504,
+          512,
+          528,
+          552,
+          560,
+          568,
+          600,
+          616,
+          632,
+          648,
+          680,
+          688,
+          704,
+          712,
+          720,
+          744,
+          752,
+          784,
+          832,
+          856,
+          872,
+          880,
+          896,
+          912,
+          920,
+          936,
+          944,
+          1000,
+          1112,
+          1128,
+          1160,
+          1168,
+          1176,
+          1216,
+          1232,
+          1280,
+          1296,
+          1320,
+          1352,
+          1360,
+          1376,
+          1400,
+          1408,
+          1416,
+          1440,
+          1456,
+          1512,
+          1520,
+          1584,
+          1608,
+          1624,
+          1632,
+          1664,
+          1672,
+          1752,
+          1776,
+          1800,
+          1832,
+          1848,
+          1856,
+          1864,
+          1872,
+          1920,
+          1936,
+          1952,
+          1968,
+          1992,
+          2008,
+          2016,
+          2032,
+          2040,
+          2128,
+          2176,
+          2248,
+          2312,
+          2336,
+          2400,
+          2424,
+          2432,
+          2456,
+          2520,
+          2576,
+          2592,
+          2608,
+          2616,
+          2632
+        ]
+      },
+      "related_groups": {
+        "allow_row_split": false,
+        "exact_duplicates_grouped": true,
+        "group_columns": [
+          "session_id",
+          "source_file",
+          "family",
+          "sample_id"
+        ],
+        "group_count": 330
+      },
+      "scope": "development_and_validation_only",
+      "session_ids": {
+        "development": [
+          "administration-0001",
+          "administration-0003",
+          "administration-0004",
+          "administration-0005",
+          "administration-0006",
+          "administration-0007",
+          "administration-0008",
+          "administration-0011",
+          "administration-0012",
+          "administration-0013",
+          "administration-0014",
+          "administration-0015",
+          "administration-0016",
+          "administration-0017",
+          "administration-0019",
+          "administration-0020",
+          "administration-0022",
+          "administration-0025",
+          "administration-0026",
+          "administration-0027",
+          "ambiguous_impact-0001",
+          "ambiguous_impact-0002",
+          "ambiguous_impact-0005",
+          "ambiguous_impact-0006",
+          "ambiguous_impact-0008",
+          "ambiguous_impact-0009",
+          "ambiguous_impact-0010",
+          "ambiguous_impact-0011",
+          "ambiguous_impact-0012",
+          "ambiguous_impact-0013",
+          "ambiguous_impact-0014",
+          "ambiguous_impact-0016",
+          "ambiguous_impact-0017",
+          "ambiguous_impact-0018",
+          "ambiguous_impact-0019",
+          "ambiguous_impact-0020",
+          "ambiguous_impact-0021",
+          "ambiguous_impact-0023",
+          "ambiguous_impact-0025",
+          "ambiguous_impact-0028",
+          "backup-0000",
+          "backup-0001",
+          "backup-0002",
+          "backup-0004",
+          "backup-0005",
+          "backup-0006",
+          "backup-0007",
+          "backup-0008",
+          "backup-0010",
+          "backup-0011",
+          "backup-0012",
+          "backup-0013",
+          "backup-0015",
+          "backup-0017",
+          "backup-0018",
+          "backup-0021",
+          "backup-0022",
+          "backup-0023",
+          "backup-0024",
+          "backup-0025",
+          "backup-0026",
+          "backup-0027",
+          "backup-0029",
+          "build_tools-0000",
+          "build_tools-0001",
+          "build_tools-0003",
+          "build_tools-0005",
+          "build_tools-0006",
+          "build_tools-0007",
+          "build_tools-0008",
+          "build_tools-0009",
+          "build_tools-0011",
+          "build_tools-0013",
+          "build_tools-0014",
+          "build_tools-0016",
+          "build_tools-0017",
+          "build_tools-0018",
+          "build_tools-0021",
+          "build_tools-0023",
+          "build_tools-0024",
+          "build_tools-0028",
+          "build_tools-0029",
+          "bulk_file_operations-0000",
+          "bulk_file_operations-0001",
+          "bulk_file_operations-0002",
+          "bulk_file_operations-0003",
+          "bulk_file_operations-0004",
+          "bulk_file_operations-0005",
+          "bulk_file_operations-0006",
+          "bulk_file_operations-0007",
+          "bulk_file_operations-0008",
+          "bulk_file_operations-0009",
+          "bulk_file_operations-0010",
+          "bulk_file_operations-0011",
+          "bulk_file_operations-0012",
+          "bulk_file_operations-0014",
+          "bulk_file_operations-0015",
+          "bulk_file_operations-0017",
+          "bulk_file_operations-0018",
+          "bulk_file_operations-0019",
+          "bulk_file_operations-0021",
+          "bulk_file_operations-0022",
+          "bulk_file_operations-0023",
+          "bulk_file_operations-0024",
+          "bulk_file_operations-0025",
+          "bulk_file_operations-0027",
+          "bulk_file_operations-0028",
+          "bulk_file_operations-0029",
+          "cloud_sync-0000",
+          "cloud_sync-0001",
+          "cloud_sync-0002",
+          "cloud_sync-0003",
+          "cloud_sync-0004",
+          "cloud_sync-0006",
+          "cloud_sync-0007",
+          "cloud_sync-0008",
+          "cloud_sync-0009",
+          "cloud_sync-0010",
+          "cloud_sync-0011",
+          "cloud_sync-0012",
+          "cloud_sync-0013",
+          "cloud_sync-0014",
+          "cloud_sync-0015",
+          "cloud_sync-0016",
+          "cloud_sync-0017",
+          "cloud_sync-0018",
+          "cloud_sync-0020",
+          "cloud_sync-0022",
+          "cloud_sync-0023",
+          "cloud_sync-0024",
+          "cloud_sync-0028",
+          "cloud_sync-0029",
+          "compression-0001",
+          "compression-0005",
+          "compression-0007",
+          "compression-0008",
+          "compression-0012",
+          "compression-0013",
+          "compression-0014",
+          "compression-0016",
+          "compression-0018",
+          "compression-0020",
+          "compression-0022",
+          "compression-0023",
+          "compression-0024",
+          "compression-0027",
+          "destructive_with_note-0001",
+          "destructive_with_note-0003",
+          "destructive_with_note-0005",
+          "destructive_with_note-0007",
+          "destructive_with_note-0008",
+          "destructive_with_note-0010",
+          "destructive_with_note-0013",
+          "destructive_with_note-0016",
+          "destructive_with_note-0017",
+          "destructive_with_note-0018",
+          "destructive_with_note-0019",
+          "destructive_with_note-0020",
+          "destructive_with_note-0021",
+          "destructive_with_note-0022",
+          "destructive_with_note-0023",
+          "destructive_with_note-0024",
+          "destructive_with_note-0025",
+          "destructive_with_note-0027",
+          "destructive_with_note-0028",
+          "destructive_with_note-0029",
+          "destructive_with_recovery_tamper-0000",
+          "destructive_with_recovery_tamper-0001",
+          "destructive_with_recovery_tamper-0003",
+          "destructive_with_recovery_tamper-0004",
+          "destructive_with_recovery_tamper-0005",
+          "destructive_with_recovery_tamper-0006",
+          "destructive_with_recovery_tamper-0007",
+          "destructive_with_recovery_tamper-0008",
+          "destructive_with_recovery_tamper-0009",
+          "destructive_with_recovery_tamper-0010",
+          "destructive_with_recovery_tamper-0012",
+          "destructive_with_recovery_tamper-0013",
+          "destructive_with_recovery_tamper-0014",
+          "destructive_with_recovery_tamper-0015",
+          "destructive_with_recovery_tamper-0016",
+          "destructive_with_recovery_tamper-0017",
+          "destructive_with_recovery_tamper-0018",
+          "destructive_with_recovery_tamper-0020",
+          "destructive_with_recovery_tamper-0021",
+          "destructive_with_recovery_tamper-0023",
+          "destructive_with_recovery_tamper-0024",
+          "destructive_with_recovery_tamper-0025",
+          "destructive_with_recovery_tamper-0026",
+          "destructive_with_recovery_tamper-0027",
+          "destructive_with_recovery_tamper-0028",
+          "destructive_with_recovery_tamper-0029",
+          "network_polling-0000",
+          "network_polling-0001",
+          "network_polling-0002",
+          "network_polling-0003",
+          "network_polling-0004",
+          "network_polling-0005",
+          "network_polling-0006",
+          "network_polling-0007",
+          "network_polling-0008",
+          "network_polling-0010",
+          "network_polling-0011",
+          "network_polling-0013",
+          "network_polling-0014",
+          "network_polling-0016",
+          "network_polling-0017",
+          "network_polling-0018",
+          "network_polling-0020",
+          "network_polling-0025",
+          "network_polling-0026",
+          "network_polling-0027",
+          "network_polling-0028",
+          "network_polling-0029",
+          "software_update-0001",
+          "software_update-0002",
+          "software_update-0005",
+          "software_update-0006",
+          "software_update-0007",
+          "software_update-0009",
+          "software_update-0010",
+          "software_update-0011",
+          "software_update-0012",
+          "software_update-0013",
+          "software_update-0015",
+          "software_update-0016",
+          "software_update-0018",
+          "software_update-0021",
+          "software_update-0023",
+          "software_update-0026",
+          "software_update-0029"
+        ],
+        "validation": [
+          "administration-0000",
+          "administration-0002",
+          "administration-0009",
+          "administration-0010",
+          "administration-0018",
+          "administration-0021",
+          "administration-0023",
+          "administration-0024",
+          "administration-0028",
+          "administration-0029",
+          "ambiguous_impact-0000",
+          "ambiguous_impact-0003",
+          "ambiguous_impact-0004",
+          "ambiguous_impact-0007",
+          "ambiguous_impact-0015",
+          "ambiguous_impact-0022",
+          "ambiguous_impact-0024",
+          "ambiguous_impact-0026",
+          "ambiguous_impact-0027",
+          "ambiguous_impact-0029",
+          "backup-0003",
+          "backup-0009",
+          "backup-0014",
+          "backup-0016",
+          "backup-0019",
+          "backup-0020",
+          "backup-0028",
+          "build_tools-0002",
+          "build_tools-0004",
+          "build_tools-0010",
+          "build_tools-0012",
+          "build_tools-0015",
+          "build_tools-0019",
+          "build_tools-0020",
+          "build_tools-0022",
+          "build_tools-0025",
+          "build_tools-0026",
+          "build_tools-0027",
+          "bulk_file_operations-0013",
+          "bulk_file_operations-0016",
+          "bulk_file_operations-0020",
+          "bulk_file_operations-0026",
+          "cloud_sync-0005",
+          "cloud_sync-0019",
+          "cloud_sync-0021",
+          "cloud_sync-0025",
+          "cloud_sync-0026",
+          "cloud_sync-0027",
+          "compression-0000",
+          "compression-0002",
+          "compression-0003",
+          "compression-0004",
+          "compression-0006",
+          "compression-0009",
+          "compression-0010",
+          "compression-0011",
+          "compression-0015",
+          "compression-0017",
+          "compression-0019",
+          "compression-0021",
+          "compression-0025",
+          "compression-0026",
+          "compression-0028",
+          "compression-0029",
+          "destructive_with_note-0000",
+          "destructive_with_note-0002",
+          "destructive_with_note-0004",
+          "destructive_with_note-0006",
+          "destructive_with_note-0009",
+          "destructive_with_note-0011",
+          "destructive_with_note-0012",
+          "destructive_with_note-0014",
+          "destructive_with_note-0015",
+          "destructive_with_note-0026",
+          "destructive_with_recovery_tamper-0002",
+          "destructive_with_recovery_tamper-0011",
+          "destructive_with_recovery_tamper-0019",
+          "destructive_with_recovery_tamper-0022",
+          "network_polling-0009",
+          "network_polling-0012",
+          "network_polling-0015",
+          "network_polling-0019",
+          "network_polling-0021",
+          "network_polling-0022",
+          "network_polling-0023",
+          "network_polling-0024",
+          "software_update-0000",
+          "software_update-0003",
+          "software_update-0004",
+          "software_update-0008",
+          "software_update-0014",
+          "software_update-0017",
+          "software_update-0019",
+          "software_update-0020",
+          "software_update-0022",
+          "software_update-0024",
+          "software_update-0025",
+          "software_update-0027",
+          "software_update-0028"
+        ]
+      }
+    },
+    "task02_holdout_accessed": false,
+    "test_partition": null,
+    "version": 1,
+    "windows_per_session": 8
+  },
+  "sha256": {
+    "development.jsonl": "59ab0ecec59168462d1b6524e41d36c3f5eaac2e5b7da388cf078407299a3ac8",
+    "development_models.joblib": "eabd4e2bf6dea94df3d12e9c0a7c07ed1db4bd6bcae13d3ae037183917cb131e",
+    "development_predictions.json": "3c279976c0e69870bb1eca16c48c47a663f6d5092072954817bfdc96d37a31d3",
+    "protocol.json": "49a6b1e20517e1e8a79505910b690bae2079ddf2ae2a80b6cd507f9bce1a3805",
+    "response_engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "response_engine/evidence_policy.py": "8e721d57d09230d273bafbda6270972b13bbc02bd5bd8f2daa3694661070debb",
+    "response_engine/protective_lockdown.py": "08078ac3af630313c14f5b1f6a09ccdc8ed837cd1b8a5c69b43decd4694dccab",
+    "response_engine/response_policy.py": "fe81a1ea4a0161ef036999b788cb0e12d525d1de3e5b6e0f68148bd5857c8882",
+    "telemetry/__init__.py": "83e91ebc4804844c23bf7c1f19c6190edeba1b67a35bd847e9ab36d67453f956",
+    "telemetry/behavior.py": "bebc44cac6782f5be239813992cf2ea03ef144b3e1ded66007eb1634b71c4765",
+    "telemetry/schema.py": "b232f0f8a3507b18146690c6e5368fa90870b32e73d44613779cafd8efb1e87b",
+    "validation.jsonl": "738f44f9a3e65815320fb312c67b8210b6e9c00279e1e4ed2dc025c14f752db0",
+    "validation_predictions.json": "c6412e188a4ff72cffd06ca818475a36d47ece9616fe62a1922cc5702fe2d658"
+  },
+  "versions": {
+    "joblib": "1.5.3",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3",
+    "python": "3.14.7",
+    "scikit-learn": "1.8.0",
+    "xgboost": "3.4.1"
+  }
+}

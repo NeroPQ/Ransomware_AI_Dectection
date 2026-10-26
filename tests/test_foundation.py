@@ -54,6 +54,17 @@ def synthetic_samples():
     return pd.DataFrame(rows)
 
 
+def corroborated_events(start=1, scenario=None):
+    from symptom_ai.benchmark.policy_development import make_event
+    events = [make_event("file_scramble", index=i, path=f"docs/dir-{i % 2}/file-{i}.txt",
+                         indicators=["destructive_content"], entropy=7.8) for i in range(5)]
+    events.append(make_event("ransom_note", index=5, path="docs/note.txt", indicators=["ransom_note"]))
+    for index, event in enumerate(events, start):
+        event["scenario_event_index"] = index
+        event["scenario"] = scenario
+    return events
+
+
 def synthetic_events():
     return [{"event_index": i, "timestamp": "2026-01-01T00:00:00", "event_type": event,
              "object": f"fixture_{i}", "process_name": "fixture", "bytes_written": 100,
@@ -224,15 +235,16 @@ class DetectionSafetyTests(unittest.TestCase):
     def test_benign_and_isolated_anomaly_do_not_recommend_containment(self):
         self.assertEqual(recommend_response({})["policy"], "monitor_only")
         result = recommend_response({"file_write_burst": 0.8}, "high")
-        self.assertEqual(result["policy"], "early_warning")
+        self.assertEqual(result["policy"], "monitor_only")
+        self.assertEqual(result["legacy_unknown_risk"], "high")
         self.assertFalse(result["containment_recommended"])
         self.assertFalse(result["containment_executed"])
 
-    def test_correlated_file_evidence_preserves_simulated_policy(self):
+    def test_correlated_untyped_file_evidence_requires_review_before_containment(self):
         symptoms = {"file_write_burst": 0.9, "high_entropy_write": 0.9}
-        self.assertEqual(recommend_response(symptoms)["policy"], "isolate_and_backup")
-        self.assertEqual(recommend_response(symptoms, "high")["policy"], "protective_lockdown")
-        self.assertEqual(recommend_response({"backup_disable_attempt": 0.9})["policy"], "protective_lockdown")
+        self.assertEqual(recommend_response(symptoms)["stage"], "suspicious_activity")
+        self.assertFalse(recommend_response(symptoms, "high")["containment_recommended"])
+        self.assertFalse(recommend_response({"backup_disable_attempt": 0.9})["containment_recommended"])
 
     def test_risk_uses_fixed_denominator(self):
         self.assertLess(calculate_symptom_risk({"file_write_burst": 1.0}), 0.2)
@@ -242,8 +254,8 @@ class DetectionSafetyTests(unittest.TestCase):
 
     def test_impact_and_recommendation_are_not_execution(self):
         damage = {"has_file_impact": True}
-        self.assertEqual(watcher.decide_alert_type({}, damage, "protective_lockdown", "high"), "file_impact_containment_recommended")
-        self.assertEqual(watcher.decide_alert_type({}, damage, "monitor_only", "low"), "file_impact_needs_review")
+        self.assertEqual(watcher.decide_alert_type({}, damage, "protective_lockdown", "high"), "evidence_collection")
+        self.assertEqual(watcher.decide_alert_type({}, damage, "monitor_only", "low"), "evidence_collection")
         self.assertEqual(watcher.decide_alert_type({"api_error": "unavailable"}, damage, None, None), "api_error_needs_review")
 
     def test_explicit_entropy_events_are_not_masked_by_zero_extra(self):
@@ -390,7 +402,7 @@ class LearningSafetyTests(unittest.TestCase):
             for directory in [watcher.QUEUE_DIR, watcher.REPORT_DIR, watcher.CONTROL_DIR]:
                 directory.mkdir(parents=True, exist_ok=True)
             with contextlib.redirect_stdout(io.StringIO()):
-                alert = watcher.evaluate_window([{"event_type": "high_entropy_write"}] * 4, 1)
+                alert = watcher.evaluate_window(corroborated_events(), 1)
             self.assertTrue(alert["simulated_stop_requested"])
             self.assertTrue(alert["containment_recommended"])
             self.assertFalse(alert["containment_executed"])

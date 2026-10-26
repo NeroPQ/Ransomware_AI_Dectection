@@ -8,6 +8,8 @@ import logging
 from uuid import uuid4
 from symptom_ai.auto_learning.review import is_approved
 from symptom_ai.models.evaluation import OUTCOME_FEATURES
+from symptom_ai.response_engine.evidence_policy import detector_evidence, decide_policy
+from symptom_ai.telemetry.behavior import event_has_possible_impact, normalize_event
 import time
 import urllib.request
 from collections import Counter
@@ -31,27 +33,18 @@ ERROR_DIR.mkdir(parents=True, exist_ok=True)
 CONTROL_DIR.mkdir(parents=True, exist_ok=True)
 
 HIGH_IMPACT_EVENTS = {
-    "file_rename",
-    "extension_change",
     "high_entropy_write",
     "ransom_note_created",
 
     # Safe zero-day simulation impact events
     "stealth_file_lock",
     "stealth_content_scramble",
-    "stealth_extension_mutation",
     "stealth_note_marker",
 }
 
 
 
-EARLY_DETECTION_ALERT_TYPES = {
-    "early_warning_known_ransomware",
-    "early_warning_unknown_behavior",
-    "early_containment_recommended",
-    "file_impact_containment_recommended",
-    "learned_unknown_ransomware_detected",
-}
+EARLY_DETECTION_ALERT_TYPES = {"analyst_alert", "containment_recommended"}
 
 # Keeps cumulative evidence for each safe simulation scenario.
 SCENARIO_EARLY_DETECTION_STATE = {}
@@ -76,8 +69,9 @@ def read_new_lines(path: Path, offset: int):
                 return events, position
             try:
                 event = json.loads(line)
-                if not isinstance(event, dict) or not isinstance(event.get("event_type"), str):
+                if not isinstance(event, dict) or not (isinstance(event.get("event_type"), str) or "schema_version" in event):
                     raise ValueError("Event requires event_type")
+                normalize_event(event)
                 events.append(event)
             except (ValueError, TypeError):
                 logging.getLogger(__name__).warning("Invalid event record skipped at offset %s", position)
@@ -89,80 +83,12 @@ def clamp01(x):
 
 
 def aggregate_symptoms(events):
-    count = Counter(e.get("event_type") for e in events)
-    hosts = {e.get("host") for e in events if e.get("host")}
-    paths = {e.get("path") for e in events if e.get("path")}
-
-    entropy_scores = []
-    memory_scores = []
-
-    for e in events:
-        extra = e.get("extra") or {}
-        if not isinstance(extra, dict):
-            extra = {}
-        try:
-            entropy_scores.append(float(extra.get("entropy_score", 0.0)))
-        except Exception:
-            pass
-        try:
-            memory_scores.append(float(extra.get("memory_score", 0.0)))
-        except Exception:
-            pass
-
-    symptoms = {
-        "file_write_burst": clamp01((count["file_write"] + count["storage_write_spike"]) / 10),
-        "file_read_burst": clamp01(count["file_read"] / 10),
-        "file_rename_burst": clamp01(count["file_rename"] / 6),
-        "mass_file_modification": clamp01((count["file_write"] + count["file_rename"] + count["extension_change"]) / 12),
-        "suspicious_extension_change": clamp01(count["extension_change"] / 4),
-        "high_entropy_write": clamp01(max([count["high_entropy_write"] / 4] + entropy_scores)),
-        "ransom_note_created": clamp01(count["ransom_note_created"] / 2),
-        "multi_directory_impact": clamp01(len(paths) / 15),
-        "user_document_impact_high": clamp01(len(paths) / 20),
-
-        "suspicious_process_spawn": clamp01((count["process_spawn"] + count["rare_process"]) / 5),
-        "rare_process_name": clamp01(count["rare_process"] / 4),
-        "process_tree_anomaly": clamp01(count["rare_process"] / 4),
-        "process_injection_suspected": clamp01(count["process_injection_suspected"] / 3),
-
-        "memory_access_spike": clamp01(max([count["memory_anomaly"] / 4] + memory_scores)),
-        "memory_entropy_region_high": clamp01(count["memory_anomaly"] / 4),
-        "anti_vm": clamp01(count["anti_vm"] / 3),
-        "anti_analysis": clamp01((count["anti_vm"] + count["api_behavior"]) / 6),
-
-        "network_api_usage": clamp01((count["network_beacon"] + count["api_behavior"]) / 8),
-        "c2_beaconing": clamp01(count["network_beacon"] / 3),
-        "data_exfiltration_pattern": clamp01(count["network_beacon"] / 5),
-
-        "storage_write_spike": clamp01(count["storage_write_spike"] / 4),
-        "novel_symptom_combination": clamp01((count["memory_anomaly"] + count["rare_process"] + count["storage_write_spike"]) / 8),
-        "unknown_high_risk": 0.0,
-        "analyst_review_required": 0.0,
-        "retraining_candidate": 0.0,
-    }
-
-    if symptoms["novel_symptom_combination"] >= 0.5 and (
-        symptoms["mass_file_modification"] >= 0.4 or symptoms["high_entropy_write"] >= 0.7
-    ):
-        symptoms["unknown_high_risk"] = 0.9
-        symptoms["analyst_review_required"] = 0.9
-        symptoms["retraining_candidate"] = 0.9
-
-    damage = {
-        "event_count": len(events),
-        "host_count": len(hosts),
-        "hosts": sorted(hosts),
-        "unique_path_count": len(paths),
-        "high_impact_event_count": sum(count[e] for e in HIGH_IMPACT_EVENTS),
-        "event_type_counts": dict(count),
-        "has_file_impact": any(count[e] > 0 for e in HIGH_IMPACT_EVENTS),
-    }
-
-    return symptoms, damage
+    from symptom_ai.telemetry.behavior import analyze_events
+    return analyze_events(events)
 
 
 def call_ai(symptoms):
-    payload = json.dumps({"symptoms": symptoms}).encode("utf-8")
+    payload = json.dumps({"symptoms": symptoms, "feature_semantics_version": 3}).encode("utf-8")
     req = urllib.request.Request(
         API_URL,
         data=payload,
@@ -181,7 +107,7 @@ def call_ai(symptoms):
 
 
 def call_explain(symptoms):
-    payload = json.dumps({"symptoms": symptoms}).encode("utf-8")
+    payload = json.dumps({"symptoms": symptoms, "feature_semantics_version": 3}).encode("utf-8")
     req = urllib.request.Request(
         API_EXPLAIN_URL,
         data=payload,
@@ -203,26 +129,12 @@ def build_spread_report(events, damage):
     host_counts = Counter(e.get("host") for e in events if e.get("host"))
     path_counts = Counter(e.get("path") for e in events if e.get("path"))
 
-    impacted_dirs = set()
+    impacted_dirs = set(damage.get("impacted_directories", []))
     high_impact_paths = []
-
     for e in events:
-        event_type = e.get("event_type")
-        path = e.get("path")
-
-        if path:
-            try:
-                impacted_dirs.add(str(Path(path).parent))
-            except Exception:
-                pass
-
-        if event_type in HIGH_IMPACT_EVENTS and path:
-            high_impact_paths.append({
-                "event_type": event_type,
-                "host": e.get("host"),
-                "path": path,
-                "timestamp": e.get("timestamp")
-            })
+        if event_has_possible_impact(e):
+            high_impact_paths.append({"event_type": e.get("operation", e.get("event_type")),
+                                      "host": e.get("host"), "path": e.get("path"), "timestamp": e.get("timestamp")})
 
     return {
         "spread_scope": {
@@ -301,19 +213,9 @@ def build_remediation(response, alert_type, damage):
     actions = list(response.get("recommended_actions", []) or [])
 
     if damage.get("has_file_impact"):
-        actions.extend([
-            "Immediately isolate affected host(s) from the network",
-            "Preserve impacted files and logs for forensic review",
-            "Block further write/rename operations on protected folders",
-            "Trigger emergency backup verification",
-        ])
-
-    if alert_type in {"file_impact_containment_recommended", "file_impact_needs_review"}:
-        actions.extend([
-            "Send unknown behavior to learning queue",
-            "Schedule auto-retraining after validation threshold is reached",
-            "Create analyst review ticket for unknown ransomware behavior",
-        ])
+        actions.append("Preserve possible impact evidence for analyst review")
+    if alert_type == "file_impact_needs_review":
+        actions.append("Queue case for explicit analyst labeling before any learning")
 
     # deduplicate while preserving order
     seen = set()
@@ -352,10 +254,11 @@ def save_learning_case(window_id, events, symptoms, damage, ai_result, reason):
         "ai_result": ai_result,
         "label": None,
         "family": "unknown_ransomware_candidate",
-        "response_policy": "protective_lockdown",
+        "response_policy": ai_result.get("response", {}).get("policy", "analyst_review"),
         "learning_status": "pending_review",
         "confirmed_label": None,
-        "safety_note": "Safe sandbox logs only. No real ransomware was executed.",
+        "feature_semantics_version": 3,
+        "safety_note": "Observation-only evaluation; no endpoint response was executed.",
     }
 
     out.write_text(json.dumps(case, indent=2), encoding="utf-8")
@@ -391,16 +294,17 @@ def load_learned_signatures():
 
 def match_learned_signature(events):
     symptoms, damage = aggregate_symptoms(events)
-    current_counts = Counter(e.get("event_type") for e in events)
-    if damage["high_impact_event_count"] < 3 or len(set(current_counts) & HIGH_IMPACT_EVENTS) < 2:
+    current_counts = Counter(normalize_event(e)["operation"] for e in events)
+    signature_events = {"file_modify", "file_scramble", "file_lock", "file_extension_change", "ransom_note"}
+    if damage["high_impact_event_count"] < 3 or len(set(current_counts) & signature_events) < 2:
         return None
     for signature in load_learned_signatures():
         reference_events = signature["case"].get("events") or []
         if not reference_events:
             continue
         reference, reference_damage = aggregate_symptoms(reference_events)
-        counts = Counter(e.get("event_type") for e in reference_events)
-        if reference_damage["high_impact_event_count"] < 3 or len(set(counts) & HIGH_IMPACT_EVENTS) < 2:
+        counts = Counter(normalize_event(e)["operation"] for e in reference_events)
+        if reference_damage["high_impact_event_count"] < 3 or len(set(counts) & signature_events) < 2:
             continue
         # Match observable rates and symptom magnitudes; scenario_type is never used.
         types = set(counts) | set(current_counts)
@@ -413,22 +317,27 @@ def match_learned_signature(events):
                     "shared_event_types": sorted(set(counts) & set(current_counts))}
     return None
 
-def decide_alert_type(ai_result, damage, policy, unknown_risk):
-    if "api_error" in ai_result:
+def decide_alert_type(ai_result, damage, policy=None, unknown_risk=None):
+    """Old function signature delegates to the same canonical policy engine.
+
+    Historical policy/risk strings cannot authorize escalation. Task 02 replay
+    keeps its old behavior in the isolated benchmark snapshot.
+    """
+    symptoms = ai_result.get("symptoms", {})
+    observations = dict(damage)
+    if "evidence_categories" not in observations:
+        observations["evidence_categories"] = {"observed_activity": [], "suspicious_behavior": [],
+            "possible_impact": ["untyped_impact_assertion"] if damage.get("has_file_impact") else [],
+            "corroborated_high_confidence_detection": []}
+    evidence = detector_evidence(symptoms, observations, ai_result)
+    return policy_alert_type(decide_policy(symptoms, observations, evidence), ai_result)
+
+
+def policy_alert_type(response, ai_result):
+    if "api_error" in ai_result and response["stage"] in {"monitor", "suspicious_activity"}:
         return "api_error_needs_review"
-    recommended = policy in {"isolate_and_backup", "protective_lockdown"}
-    impact = bool(damage.get("has_file_impact"))
-    if impact and recommended:
-        return "file_impact_containment_recommended"
-    if impact:
-        return "file_impact_needs_review"
-    if recommended:
-        return "early_containment_recommended"
-    if ai_result.get("predicted_label") == "known_ransomware_like":
-        return "early_warning_known_ransomware"
-    if unknown_risk == "high" or policy == "early_warning":
-        return "early_warning_unknown_behavior"
-    return "monitor"
+    return {"monitor": "monitor", "suspicious_activity": "evidence_collection",
+            "analyst_alert": "analyst_alert", "containment_recommendation": "containment_recommended"}[response["stage"]]
 
 def write_stop_signal(window_id, alert_type, policy, damage):
     """
@@ -521,14 +430,14 @@ def update_early_detection_metrics(events, alert_type):
             event_index,
         )
 
-        if event.get("event_type") in HIGH_IMPACT_EVENTS:
+        if event_has_possible_impact(event):
             if state["first_high_impact_event_index"] is None:
                 state["first_high_impact_event_index"] = event_index
 
             state["high_impact_events_seen"] += 1
 
         path_value = event.get("path")
-        if path_value and event.get("event_type") in HIGH_IMPACT_EVENTS:
+        if path_value and event_has_possible_impact(event):
             state["affected_paths_seen"].add(path_value)
 
     is_detection_alert = alert_type in EARLY_DETECTION_ALERT_TYPES
@@ -583,31 +492,12 @@ def evaluate_window(window_events, window_index):
 
     window_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_window_{window_index}_{uuid4().hex[:8]}"
 
-    if learned_match and damage.get("has_file_impact") and "api_error" not in ai_result:
-        alert_type = "learned_unknown_ransomware_detected"
-        policy = "protective_lockdown"
-
-        # Reviewed similarity is a heuristic recommendation, not a malware probability.
-        risk = max(float(risk or 0), 0.7)
-        unknown_risk = "high"
-        predicted = "learned_unknown_ransomware"
-
-        ai_result["risk_score"] = risk
-        ai_result["unknown_risk"] = unknown_risk
-        ai_result["predicted_label"] = predicted
-
-        response["policy"] = "protective_lockdown"
-        response["severity"] = "Critical"
-        response["recommended_actions"] = [
-            "Behavior resembles a reviewed simulation case",
-            "Immediately isolate affected host(s)",
-            "Block further write/rename operations",
-            "Preserve evidence and event timeline",
-            "Trigger protective lockdown"
-        ]
-        ai_result["learned_match"] = learned_match
-    else:
-        alert_type = decide_alert_type(ai_result, damage, policy, unknown_risk)
+    detectors = detector_evidence(symptoms, damage, ai_result, learned_match)
+    response = decide_policy(symptoms, damage, detectors)
+    policy = response["policy"]
+    ai_result["response"] = response
+    ai_result["learned_match"] = learned_match
+    alert_type = policy_alert_type(response, ai_result)
 
     early_detection_metrics = update_early_detection_metrics(
         window_events,
@@ -619,18 +509,18 @@ def evaluate_window(window_events, window_index):
 
     learned_signature_file = None
 
-    if alert_type == "file_impact_needs_review":
+    if response["analyst_review_required"] and damage.get("has_file_impact"):
         learning_case_file = save_learning_case(
             window_id,
             window_events,
             symptoms,
             damage,
             ai_result,
-            reason="File-impact indicators appeared but containment policy was not triggered.",
+            reason="Possible impact requires explicit analyst labeling; policy is a recommendation only.",
         )
         # Signature creation is deferred until analyst approval.
 
-    if alert_type == "api_error_needs_review":
+    if "api_error" in ai_result:
         error_case_file = save_error_case(
             window_id,
             window_events,
@@ -643,8 +533,8 @@ def evaluate_window(window_events, window_index):
     # Compatibility fields describe the cooperative sandbox request only.
     # No endpoint containment or generator acknowledgement is implied.
     sandbox_safety_stop = bool(
-        damage.get("has_file_impact") and "api_error" not in ai_result
-        and policy in {"protective_lockdown", "isolate_and_backup"}
+        response["containment_recommended"] and "api_error" not in ai_result
+        and all(e.get("source", {}).get("kind") == "synthetic" for e in window_events)
     )
     containment_triggered = False
     triggered_after_file_impact = sandbox_safety_stop
@@ -666,7 +556,14 @@ def evaluate_window(window_events, window_index):
     remediation_actions = build_remediation(response, alert_type, damage)
 
     alert = {
-        "alert_schema_version": 2,
+        "alert_schema_version": 3,
+        "feature_semantics_version": 3,
+        "policy_stage": response["stage"],
+        "policy_version": response["policy_version"],
+        "policy_reasons": response["reasons"],
+        "model_error": ai_result.get("api_error"),
+        "evidence_categories": response["evidence_categories"],
+        "detector_evidence": detectors,
         "window_id": window_id,
         "time": now_iso(),
         "alert_type": alert_type,
