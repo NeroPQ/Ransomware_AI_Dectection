@@ -1,0 +1,259 @@
+{
+  "protocol": "Leave-one-family-out evaluation. The target ransomware family is excluded from training positives and used only in the held-out ransomware test set.",
+  "dataset_source": "CSU_Ransomware_Data",
+  "held_out_family": "Akira",
+  "training_rows": 200000,
+  "test_rows": 40000,
+  "training_label_counts": {
+    "known_ransomware_like": 100000,
+    "benign": 100000
+  },
+  "test_label_counts": {
+    "known_ransomware_like": 20000,
+    "benign": 20000
+  },
+  "feature_count": 131,
+  "feature_columns": [
+    "abnormal_storage_latency",
+    "amsi_bypass_suspected",
+    "analyst_review_required",
+    "anomaly_score_high",
+    "anti_analysis",
+    "anti_debugging",
+    "anti_sandbox",
+    "anti_vm",
+    "antivirus_disabled",
+    "autorun_entry_created",
+    "backup_disable_attempt",
+    "backup_file_deleted",
+    "backup_file_targeting",
+    "backup_service_stopped",
+    "bcdedit_recovery_disabled",
+    "business_file_touch_pattern",
+    "c2_beaconing",
+    "cmd_batch_execution",
+    "command_shell_execution",
+    "critical_file_touch_attempt",
+    "crypto_api_usage",
+    "data_exfiltration_pattern",
+    "database_file_targeting",
+    "defender_preference_modified",
+    "disk_io_queue_spike",
+    "dns_tunneling_suspected",
+    "document_file_targeting",
+    "edr_process_kill_attempt",
+    "embedded_public_key",
+    "encrypted_traffic_to_rare_host",
+    "entropy_increase_after_write",
+    "event_log_clear_attempt",
+    "file_api_usage",
+    "file_delete_burst",
+    "file_open_burst",
+    "file_overwrite_pattern",
+    "file_read_burst",
+    "file_rename_burst",
+    "file_write_burst",
+    "firewall_disabled",
+    "hardcoded_extension_list",
+    "hardcoded_ransom_note_template",
+    "high_child_process_count",
+    "high_entropy_write",
+    "high_iops_short_window",
+    "high_outbound_bytes",
+    "high_outbound_connection_count",
+    "high_section_entropy",
+    "http_post_burst",
+    "image_file_targeting",
+    "known_family_similarity_high",
+    "known_family_similarity_low",
+    "known_family_similarity_medium",
+    "large_number_of_user_files_touched",
+    "living_off_the_land_binary_usage",
+    "low_import_count_packed",
+    "many_unique_extensions_created",
+    "mass_file_modification",
+    "memory_access_spike",
+    "memory_entropy_region_high",
+    "multi_directory_impact",
+    "multi_drive_impact",
+    "network_api_usage",
+    "network_share_file_impact",
+    "network_share_scan",
+    "newly_seen_domain",
+    "novel_symptom_combination",
+    "original_extension_removed",
+    "packed_binary",
+    "partial_ransomware_match",
+    "persistence_attempt",
+    "powershell_execution",
+    "process_api_usage",
+    "process_from_appdata",
+    "process_from_temp_directory",
+    "process_from_user_downloads",
+    "process_hollowing_suspected",
+    "process_injection_suspected",
+    "process_tree_anomaly",
+    "random_write_pattern",
+    "ransom_note_created",
+    "ransom_note_multiple_directories",
+    "ransomware_keyword_string",
+    "rapid_buffer_write_pattern",
+    "rare_domain_contact",
+    "rare_extension_created",
+    "rare_process_name",
+    "rdp_connection_attempt",
+    "recovery_catalog_deleted",
+    "registry_api_usage",
+    "registry_run_key_modified",
+    "registry_startup_modified",
+    "remote_admin_tool_connection",
+    "restore_point_deleted",
+    "retraining_candidate",
+    "scheduled_task_created",
+    "security_log_cleared",
+    "security_service_stopped",
+    "security_tool_tamper",
+    "sequential_file_rewrite_pattern",
+    "service_api_usage",
+    "service_created",
+    "service_modified",
+    "shadow_copy_delete_attempt",
+    "shared_folder_impact",
+    "small_file_to_high_entropy_pattern",
+    "smb_connection_burst",
+    "source_code_file_targeting",
+    "startup_folder_modified",
+    "storage_read_write_ratio_anomaly",
+    "storage_write_spike",
+    "suspicious_dns",
+    "suspicious_extension_change",
+    "suspicious_import_table",
+    "suspicious_ip_reputation",
+    "suspicious_process_spawn",
+    "suspicious_section_name",
+    "suspicious_string",
+    "system_folder_touch_attempt",
+    "system_restore_disabled",
+    "tor_or_proxy_usage",
+    "uac_bypass_suspected",
+    "unexpected_admin_tool_usage",
+    "unknown_high_risk",
+    "unknown_low_risk",
+    "unsigned_process_execution",
+    "user_document_impact_high",
+    "vssadmin_usage",
+    "wmi_persistence_suspected",
+    "wmic_shadowcopy_usage",
+    "wscript_cscript_execution"
+  ],
+  "split_integrity": {
+    "train_test_sample_id_overlap": 0,
+    "target_family_rows_in_training_positive": 0,
+    "non_target_rows_in_test_positive": 0,
+    "train_sources": [
+      "CSU_Ransomware_Data"
+    ],
+    "test_sources": [
+      "CSU_Ransomware_Data"
+    ]
+  },
+  "random_forest": {
+    "accuracy": 0.97075,
+    "precision_ransomware": 0.9599413776257938,
+    "recall_ransomware": 0.9825,
+    "f1_ransomware": 0.9710896960711638,
+    "false_positive_rate": 0.041,
+    "false_negative_rate": 0.0175,
+    "confusion_matrix_labels": [
+      "benign",
+      "known_ransomware_like"
+    ],
+    "confusion_matrix": [
+      [
+        19180,
+        820
+      ],
+      [
+        350,
+        19650
+      ]
+    ],
+    "classification_report": {
+      "benign": {
+        "precision": 0.982078853046595,
+        "recall": 0.959,
+        "f1-score": 0.9704022261573488,
+        "support": 20000.0
+      },
+      "known_ransomware_like": {
+        "precision": 0.9599413776257938,
+        "recall": 0.9825,
+        "f1-score": 0.9710896960711638,
+        "support": 20000.0
+      },
+      "accuracy": 0.97075,
+      "macro avg": {
+        "precision": 0.9710101153361944,
+        "recall": 0.97075,
+        "f1-score": 0.9707459611142564,
+        "support": 40000.0
+      },
+      "weighted avg": {
+        "precision": 0.9710101153361944,
+        "recall": 0.97075,
+        "f1-score": 0.9707459611142564,
+        "support": 40000.0
+      }
+    }
+  },
+  "xgboost": {
+    "accuracy": 0.973525,
+    "precision_ransomware": 0.9589087561176528,
+    "recall_ransomware": 0.98945,
+    "f1_ransomware": 0.9739400054137854,
+    "false_positive_rate": 0.0424,
+    "false_negative_rate": 0.01055,
+    "confusion_matrix_labels": [
+      "benign",
+      "known_ransomware_like"
+    ],
+    "confusion_matrix": [
+      [
+        19152,
+        848
+      ],
+      [
+        211,
+        19789
+      ]
+    ],
+    "classification_report": {
+      "benign": {
+        "precision": 0.9891029282652481,
+        "recall": 0.9576,
+        "f1-score": 0.9730965627619846,
+        "support": 20000.0
+      },
+      "known_ransomware_like": {
+        "precision": 0.9589087561176528,
+        "recall": 0.98945,
+        "f1-score": 0.9739400054137854,
+        "support": 20000.0
+      },
+      "accuracy": 0.973525,
+      "macro avg": {
+        "precision": 0.9740058421914505,
+        "recall": 0.973525,
+        "f1-score": 0.9735182840878851,
+        "support": 40000.0
+      },
+      "weighted avg": {
+        "precision": 0.9740058421914506,
+        "recall": 0.973525,
+        "f1-score": 0.973518284087885,
+        "support": 40000.0
+      }
+    }
+  },
+  "important_note": "These are held-out family results for the selected CSU dataset source and feature representation. They do not by themselves prove real-world ransomware generalization."
+}

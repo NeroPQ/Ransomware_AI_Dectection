@@ -1,0 +1,5 @@
+target_calibration_fpr,threshold_anomaly_score,calibration_benign_fpr,independent_benign_test_fpr,akira_unknown_detection_recall,lockbit_unknown_detection_recall,macro_family_unknown_detection_recall
+0.01,0.668162281355508,0.01005,0.01125,0.07775,0.13105,0.10439999999999999
+0.03,0.6279076591502758,0.0322,0.03335,0.27335,0.2661,0.269725
+0.05,0.6010716984000694,0.05,0.0492,0.5463,0.4368,0.49155000000000004
+0.1,0.5480774288252944,0.1,0.1003,0.82425,0.81805,0.82115

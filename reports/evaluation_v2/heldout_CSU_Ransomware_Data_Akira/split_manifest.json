@@ -1,0 +1,29 @@
+{
+  "held_out_family": "Akira",
+  "dataset_source": "CSU_Ransomware_Data",
+  "candidate_counts": {
+    "train_benign": 417933,
+    "test_benign": 104073,
+    "train_positive": 272801,
+    "test_positive": 39075
+  },
+  "selected_counts": {
+    "train_positive": 100000,
+    "train_benign": 100000,
+    "test_positive": 20000,
+    "test_benign": 20000
+  },
+  "written_counts": {
+    "train_benign": 100000,
+    "train_positive": 100000,
+    "test_benign": 20000,
+    "test_positive": 20000
+  },
+  "files": {
+    "train_positive": "reports/evaluation_v2/heldout_CSU_Ransomware_Data_Akira/data/train_positive.csv",
+    "train_benign": "reports/evaluation_v2/heldout_CSU_Ransomware_Data_Akira/data/train_benign.csv",
+    "test_positive": "reports/evaluation_v2/heldout_CSU_Ransomware_Data_Akira/data/test_positive.csv",
+    "test_benign": "reports/evaluation_v2/heldout_CSU_Ransomware_Data_Akira/data/test_benign.csv"
+  },
+  "note": "The held-out ransomware family is excluded from the training-positive set. Benign train and test samples are deterministically separated."
+}

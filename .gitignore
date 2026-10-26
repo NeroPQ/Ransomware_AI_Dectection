@@ -75,3 +75,12 @@ models/*
 # Generated live demo artifacts
 data/live_watch/
 data/protected_docs/
+
+# Local source snapshots created during patching
+*.before_*
+
+# Large generated held-out evaluation split CSVs
+reports/evaluation_v2/**/data/
+
+# Preliminary evaluation artifacts
+reports/evaluation/benign_workload_benchmark_preliminary.json

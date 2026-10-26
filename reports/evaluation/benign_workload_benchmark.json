@@ -1,0 +1,58 @@
+{
+  "generated_at": "2026-06-26T16:46:14",
+  "benchmark_type": "safe_benign_workload_false_positive_check",
+  "false_positive_definition": "A window is counted as a false positive if alert_type is not 'monitor' or if a STOP_SIGNAL is created during a benign workload.",
+  "results": [
+    {
+      "scenario": "backup_like",
+      "windows": 2,
+      "false_positive_windows": 0,
+      "stop_signal_created": false,
+      "risk_scores": [
+        0.4882,
+        0.4353
+      ]
+    },
+    {
+      "scenario": "cloud_sync_like",
+      "windows": 2,
+      "false_positive_windows": 0,
+      "stop_signal_created": false,
+      "risk_scores": [
+        0.5529,
+        0.2765
+      ]
+    },
+    {
+      "scenario": "compression_like",
+      "windows": 3,
+      "false_positive_windows": 0,
+      "stop_signal_created": false,
+      "risk_scores": [
+        0.4608,
+        0.4608,
+        0.9216
+      ],
+      "note": "One benign compression-like window had a high risk score but did not trigger an alert or containment."
+    },
+    {
+      "scenario": "software_update_like",
+      "windows": 5,
+      "false_positive_windows": 0,
+      "stop_signal_created": false,
+      "risk_scores": [
+        0.3569,
+        0.3569,
+        0.2902,
+        0.7647,
+        0.3961
+      ],
+      "note": "One benign software-update-like window had an elevated risk score but did not trigger an alert or containment."
+    }
+  ],
+  "summary": {
+    "total_windows": 12,
+    "total_false_positive_windows": 0,
+    "all_stop_signals_false": true
+  }
+}

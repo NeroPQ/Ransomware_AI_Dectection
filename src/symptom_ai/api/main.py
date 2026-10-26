@@ -8,6 +8,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from symptom_ai.models.risk_scorer import calculate_symptom_risk
+from symptom_ai.models.unknown_detector_shadow import (
+    evaluate_unknown_detector_shadow,
+)
 from symptom_ai.response_engine.response_policy import recommend_response
 from symptom_ai.response_engine.protective_lockdown import (
     run_protective_lockdown,
@@ -120,6 +123,12 @@ def infer(req: SymptomRequest) -> Dict[str, Any]:
     iso_raw = float(iso.decision_function(X)[0])
     iso_pred = int(iso.predict(X)[0])
 
+    detector_shadow = evaluate_unknown_detector_shadow(
+        X,
+        iso,
+        target_fpr=0.05,
+    )
+
     unknown_risk = "high" if iso_pred == -1 else "low"
 
     if (
@@ -143,6 +152,8 @@ def infer(req: SymptomRequest) -> Dict[str, Any]:
         "risk_score": risk_score,
         "isolation_forest_raw_score": round(iso_raw, 4),
         "isolation_forest_prediction": iso_pred,
+        "unknown_detector_mode": detector_shadow["mode"],
+        "unknown_detector_shadow": detector_shadow["calibrated_shadow"],
         "unknown_risk": unknown_risk,
         "response": response,
         "model_used": metadata.get("primary_classifier"),

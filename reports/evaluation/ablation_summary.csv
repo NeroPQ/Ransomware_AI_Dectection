@@ -1,0 +1,5 @@
+method,tp_windows,fp_windows,tn_windows,fn_windows,precision,recall,f1,fpr,scenario_detection_rate,scenario_false_positive_rate,mean_positive_lead_events
+rule_only,2,0,3,4,1.0,0.3333,0.5,0.0,0.5,0.0,
+xgboost_only,2,0,3,4,1.0,0.3333,0.5,0.0,1.0,0.0,13.0
+xgboost_plus_isolation_forest,3,0,3,3,1.0,0.5,0.6667,0.0,1.0,0.0,13.0
+full_hybrid,4,0,3,2,1.0,0.6667,0.8,0.0,1.0,0.0,13.0

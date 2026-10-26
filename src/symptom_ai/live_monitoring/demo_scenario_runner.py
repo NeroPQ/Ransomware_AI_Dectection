@@ -18,6 +18,10 @@ LAB_DIR = Path("data/custom_sandbox/lab_files")
 HOSTS = ["host_hr", "host_finance", "host_accounting", "host_shared_drive"]
 FOLDERS = ["documents", "spreadsheets", "contracts", "archives"]
 
+# Counts events inside each safe simulation scenario.
+# Used later to measure events-before-alert and detection lead time.
+SCENARIO_EVENT_COUNTERS = {}
+
 
 def now_iso():
     return datetime.now().isoformat(timespec="milliseconds")
@@ -70,11 +74,15 @@ def random_path(host=None):
 
 
 def emit(scenario_id, scenario_type, event_type, host, path=None, extra=None):
+    scenario_event_index = SCENARIO_EVENT_COUNTERS.get(scenario_id, 0) + 1
+    SCENARIO_EVENT_COUNTERS[scenario_id] = scenario_event_index
+
     event = {
         "event_id": str(uuid.uuid4()),
         "timestamp": now_iso(),
         "scenario": scenario_id,
         "scenario_type": scenario_type,
+        "scenario_event_index": scenario_event_index,
         "event_type": event_type,
         "host": host,
         "path": str(path) if path else None,

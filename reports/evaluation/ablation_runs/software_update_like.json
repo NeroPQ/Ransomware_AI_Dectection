@@ -1,0 +1,109 @@
+{
+  "generated_at": "2026-06-28T15:21:56",
+  "safety_note": "This evaluator reads safe JSONL simulation logs only. It does not create STOP_SIGNAL or trigger containment.",
+  "case_id": "software_update_like",
+  "truth": "benign",
+  "source_event_log": "reports/evaluation/ablation_inputs/software_update_like_events.jsonl",
+  "source_event_log_sha256": "76d8ae033f1a84c67589447d8a4a4aaf1c4d043ac8c685c11e846c826a7afed5",
+  "window_events": 20,
+  "total_events_in_log": 61,
+  "events_evaluated": 60,
+  "ignored_tail_events": 1,
+  "first_high_impact_event_index": null,
+  "method_summaries": {
+    "rule_only": {
+      "method": "rule_only",
+      "total_windows": 3,
+      "detected_windows": 0,
+      "first_detection_window": null,
+      "first_detection_event_index": null,
+      "first_high_impact_event_index": null,
+      "detection_lead_events": null,
+      "false_positive_windows": 0,
+      "false_positive_window_rate": 0.0
+    },
+    "xgboost_only": {
+      "method": "xgboost_only",
+      "total_windows": 3,
+      "detected_windows": 0,
+      "first_detection_window": null,
+      "first_detection_event_index": null,
+      "first_high_impact_event_index": null,
+      "detection_lead_events": null,
+      "false_positive_windows": 0,
+      "false_positive_window_rate": 0.0
+    },
+    "xgboost_plus_isolation_forest": {
+      "method": "xgboost_plus_isolation_forest",
+      "total_windows": 3,
+      "detected_windows": 0,
+      "first_detection_window": null,
+      "first_detection_event_index": null,
+      "first_high_impact_event_index": null,
+      "detection_lead_events": null,
+      "false_positive_windows": 0,
+      "false_positive_window_rate": 0.0
+    },
+    "full_hybrid": {
+      "method": "full_hybrid",
+      "total_windows": 3,
+      "detected_windows": 0,
+      "first_detection_window": null,
+      "first_detection_event_index": null,
+      "first_high_impact_event_index": null,
+      "detection_lead_events": null,
+      "false_positive_windows": 0,
+      "false_positive_window_rate": 0.0
+    }
+  },
+  "windows": [
+    {
+      "window_number": 1,
+      "window_last_event_index": 20,
+      "predicted_label": "benign",
+      "risk_score": 0.2902,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": false,
+      "high_impact_event_count": 0,
+      "rule_only_detected": false,
+      "xgboost_only_detected": false,
+      "xgboost_plus_isolation_forest_detected": false,
+      "full_hybrid_alert_type": "monitor",
+      "full_hybrid_detected": false
+    },
+    {
+      "window_number": 2,
+      "window_last_event_index": 40,
+      "predicted_label": "benign",
+      "risk_score": 0.7647,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": false,
+      "high_impact_event_count": 0,
+      "rule_only_detected": false,
+      "xgboost_only_detected": false,
+      "xgboost_plus_isolation_forest_detected": false,
+      "full_hybrid_alert_type": "monitor",
+      "full_hybrid_detected": false
+    },
+    {
+      "window_number": 3,
+      "window_last_event_index": 60,
+      "predicted_label": "benign",
+      "risk_score": 0.3961,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": false,
+      "high_impact_event_count": 0,
+      "rule_only_detected": false,
+      "xgboost_only_detected": false,
+      "xgboost_plus_isolation_forest_detected": false,
+      "full_hybrid_alert_type": "monitor",
+      "full_hybrid_detected": false
+    }
+  ]
+}
