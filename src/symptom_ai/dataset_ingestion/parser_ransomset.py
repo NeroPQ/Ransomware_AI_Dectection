@@ -1,20 +1,13 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from symptom_ai.dataset_ingestion.validation import norm01, text_label, binary_labels
 
 OUT = Path("data/symptom_labels/ransomset_symptom_dataset.csv")
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 RANSOMSET_FILE = Path("data/raw/ransomset/Dataset/ransomset-multiclass-dataset.csv")
 
-
-def norm01(series):
-    s = pd.to_numeric(series, errors="coerce").fillna(0)
-    maxv = s.max()
-    minv = s.min()
-    if maxv == minv:
-        return (s > 0).astype(float)
-    return ((s - minv) / (maxv - minv)).clip(0, 1)
 
 
 def any_api_score(df, api_names):
@@ -34,13 +27,13 @@ def sum_api_score(df, api_names):
 
 
 def get_label(row):
-    text = " ".join([str(v).lower() for v in row.values[:5]])
-
-    # score_binary is usually the first important indicator in RansomSet.
-    if "normal" in text or "benign" in text:
-        return "benign"
-
-    return "known_ransomware_like"
+    if "score_binary" in row:
+        binary = binary_labels(pd.Series([row["score_binary"]])).iloc[0]
+        textual = text_label(row.get("class"))
+        if textual != "unknown" and binary != textual:
+            return "unknown"
+        return binary
+    return text_label(row.get("class"))
 
 
 def main():
@@ -183,19 +176,13 @@ def main():
     zero_df = pd.DataFrame({col: 0.0 for col in default_cols if col not in out.columns}, index=out.index)
     out = pd.concat([out, zero_df], axis=1)
 
-    # labels
-    if "score_binary" in df.columns:
-        score = pd.to_numeric(df["score_binary"], errors="coerce").fillna(1)
-        out["label"] = np.where(score == 0, "benign", "known_ransomware_like")
-    elif "class" in df.columns:
-        out["label"] = np.where(df["class"].astype(str).str.lower().str.contains("normal|benign"), "benign", "known_ransomware_like")
-    else:
-        out["label"] = "known_ransomware_like"
+    # Missing and malformed labels are review cases, never positive defaults.
+    out["label"] = df.apply(get_label, axis=1)
 
     out["response_policy"] = np.where(
         out["label"] == "benign",
         "monitor_only",
-        "isolate_and_backup"
+        np.where(out["label"] == "known_ransomware_like", "isolate_and_backup", "analyst_review")
     )
 
     out.to_csv(OUT, index=False)

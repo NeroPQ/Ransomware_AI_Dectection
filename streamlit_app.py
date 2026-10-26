@@ -1,3 +1,4 @@
+from pathlib import Path
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -9,6 +10,11 @@ st.title("Ransomware AI Early Warning & Behavior Analysis")
 metrics_path = "reports/behavior_model_metrics.csv"
 scored_path = "reports/behavior_scored_windows.csv"
 mitre_path = "reports/mitre_alerts.csv"
+
+missing = [path for path in [metrics_path, scored_path, mitre_path] if not Path(path).is_file()]
+if missing:
+    st.info("Missing demo reports. Generate safe logs, build features, train behavior models, then run mitre_mapping.py. Single-session training requires an explicit demonstration split.")
+    st.stop()
 
 metrics = pd.read_csv(metrics_path)
 scored = pd.read_csv(scored_path)
@@ -38,6 +44,7 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
+    st.caption("All-window scores include training data. They are exploratory, not held-out evidence of early detection.")
     st.subheader("Scored Windows")
     cols = [
         "window_id", "first_event_index", "label",

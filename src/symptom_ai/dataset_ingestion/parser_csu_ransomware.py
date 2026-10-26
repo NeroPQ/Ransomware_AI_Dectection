@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from symptom_ai.dataset_ingestion.validation import norm01, text_label, binary_labels
 
 OUT = Path("data/symptom_labels/csu_symptom_dataset.csv")
 OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -15,14 +16,6 @@ CSU_FILES = [
 ]
 
 
-def norm01(series):
-    s = pd.to_numeric(series, errors="coerce").fillna(0)
-    maxv = s.max()
-    minv = s.min()
-    if maxv == minv:
-        return (s > 0).astype(float)
-    return ((s - minv) / (maxv - minv)).clip(0, 1)
-
 
 def yes01(series):
     s = pd.to_numeric(series, errors="coerce").fillna(0)
@@ -30,24 +23,17 @@ def yes01(series):
 
 
 def detect_label(row):
-    name = str(row.get("target-class-name", "")).lower()
-    ware = str(row.get("Ware Type", "")).lower()
-    target = str(row.get("target-class", "")).lower()
-
-    text = " ".join([name, ware, target])
-
-    if "good" in text or "benign" in text or target == "0":
-        return "benign"
-
-    if "ransom" in text or target == "1":
-        return "known_ransomware_like"
-
-    return "unknown"
+    fields = [text_label(row.get(name)) for name in ("target-class-name", "Ware Type")]
+    target = binary_labels(pd.Series([row.get("target-class")])).iloc[0]
+    labels = set(fields + [target]) - {"unknown"}
+    return labels.pop() if len(labels) == 1 else "unknown"
 
 
 def response_policy(label, symptoms):
     if label == "benign":
         return "monitor_only"
+    if label != "known_ransomware_like":
+        return "analyst_review"
 
     if (
         symptoms.get("shadow_copy_delete_attempt", 0) >= 0.7
@@ -61,11 +47,16 @@ def response_policy(label, symptoms):
 def parse_one_file(path: Path):
     print(f"[+] Parsing {path}")
     df = pd.read_csv(path)
+    has_extension_similarity = "extension_similarity" in df
+    # Missing raw features are absent observations, with aligned Series defaults.
+    for col in ["File_Delete_archived", "File_created", "file-related", "extension_similarity", "file_name_entropy", "Process_Create", "process_vs_parent_freq_ratio", "suspicious_path", "process_name_length", "Registry_value_set", "network-related", "directory_depth", "system_executable"]:
+        if col not in df:
+            df[col] = 0.0
 
     out = pd.DataFrame()
     out["sample_id"] = [f"csu_{path.stem}_{i}" for i in range(len(df))]
     out["dataset_source"] = "CSU_Ransomware_Data"
-    out["family"] = df.get("target-class-name", df.get("Ware Type", "unknown")).astype(str)
+    out["family"] = df.get("target-class-name", df.get("Ware Type", pd.Series("unknown", index=df.index))).astype(str)
     out["behavior_type"] = "sysmon_engineered_features"
     out["collection_type"] = "sysmon_features"
     out["platform"] = "windows"
@@ -77,7 +68,7 @@ def parse_one_file(path: Path):
     out["file_write_burst"] = yes01(df.get("File_created", 0))
     out["file_open_burst"] = norm01(df.get("file-related", 0))
     out["mass_file_modification"] = norm01(df.get("file-related", 0))
-    out["suspicious_extension_change"] = 1 - norm01(df.get("extension_similarity", 0))
+    out["suspicious_extension_change"] = (1 - pd.to_numeric(df["extension_similarity"], errors="coerce").clip(0, 1)).fillna(0) if has_extension_similarity else 0.0
     out["high_entropy_write"] = norm01(df.get("file_name_entropy", 0))
     out["entropy_increase_after_write"] = norm01(df.get("file_name_entropy", 0))
 
@@ -213,9 +204,8 @@ def parse_one_file(path: Path):
         "retraining_candidate",
     ]
 
-    for col in default_symptoms:
-        if col not in out.columns:
-            out[col] = 0.0
+    defaults = pd.DataFrame({col: 0.0 for col in default_symptoms if col not in out}, index=out.index)
+    out = pd.concat([out, defaults], axis=1)
 
     policies = []
     for _, row in out.iterrows():

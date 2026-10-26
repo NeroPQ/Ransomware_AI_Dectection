@@ -48,6 +48,9 @@ dataset_evidence_gauge = Gauge(
 
 ALERT_TYPES = [
     "monitor",
+    "file_impact_containment_recommended",
+    "file_impact_needs_review",
+    "learned_unknown_ransomware_detected",
     "early_warning_unknown_behavior",
     "early_containment_recommended",
     "unknown_ransomware_contained",
@@ -58,6 +61,7 @@ ALERT_TYPES = [
 
 POLICIES = [
     "monitor_only",
+    "early_warning",
     "isolate_and_backup",
     "protective_lockdown",
     "unknown",
@@ -98,7 +102,7 @@ def update_metrics():
     path_count.set(safe_float(damage.get("unique_path_count"), 0))
     directory_count.set(safe_float(scope.get("impacted_directory_count"), 0))
 
-    learning_queue_size.set(len(list(QUEUE_DIR.glob("*.json"))) if QUEUE_DIR.exists() else 0)
+    learning_queue_size.set(len(list(QUEUE_DIR.glob("learning_case_*.json"))) if QUEUE_DIR.exists() else 0)
     error_case_size.set(len(list(ERROR_DIR.glob("*.json"))) if ERROR_DIR.exists() else 0)
 
     current_alert = data.get("alert_type") or "monitor"
@@ -111,11 +115,13 @@ def update_metrics():
 
     # Reset host gauges for known hosts in latest spread report.
     host_counts = spread.get("host_event_counts", {}) or {}
-    for host, count in host_counts.items():
+    host_event_gauge.clear()
+    for host, count in list(host_counts.items())[:100]:
         host_event_gauge.labels(host=str(host)).set(safe_float(count, 0))
 
     # Evidence gauges
     evidence = data.get("dataset_evidence", {}) or {}
+    dataset_evidence_gauge.clear()
     for r in evidence.get("top_matches", [])[:5]:
         ds = str(r.get("dataset_source") or "unknown")
         label = str(r.get("label") or "unknown")

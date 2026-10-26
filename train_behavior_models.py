@@ -1,106 +1,60 @@
-import os
+"""Safe behavioral-model demonstration; metrics require independent sessions."""
+from pathlib import Path
+import argparse
+import json
+
 import joblib
 import pandas as pd
-import numpy as np
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier, IsolationForest
-from sklearn.metrics import precision_score, recall_score, f1_score, classification_report, confusion_matrix
-from xgboost import XGBClassifier
+from symptom_ai.models.train_symptom_models import train_models
+from symptom_ai.models.evaluation import feature_matrix, BEHAVIOR_FEATURES
 
-INPUT = "data/processed/behavior/behavior_features.csv"
-METRICS_OUT = "reports/behavior_metrics.csv"
-SCORED_OUT = "reports/behavior_scored_windows"
+INPUT = Path("data/processed/behavior/behavior_features.csv")
+METRICS_OUT = Path("reports/behavior_model_metrics.csv")
+SCORED_OUT = Path("reports/behavior_scored_windows.csv")
 
-os.makedirs("models", exist_ok=True)
-os.makedirs("reports", exist_ok=True)
 
-df = pd.read_csv(INPUT)
-df["y"] = (df["label"] == "ransomware").astype(int)
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, default=INPUT)
+    parser.add_argument("--allow-row-split", action="store_true")
+    args = parser.parse_args()
+    if not args.input.is_file():
+        parser.exit(1, f"Missing dataset: {args.input}. Run generate_safe_behavior_logs.py then build_behavior_features.py.\n")
+    df = pd.read_csv(args.input)
+    if "label" in df:
+        df["label"] = df["label"].replace({"ransomware": "known_ransomware_like"})
+    try:
+        models, metadata, report = train_models(df, behavior=True, allow_row_split=args.allow_row_split)
+    except ValueError as exc:
+        parser.exit(1, f"Training validation failed: {exc}\n")
+    Path("models").mkdir(exist_ok=True)
+    METRICS_OUT.parent.mkdir(parents=True, exist_ok=True)
+    rows = [{"model": name, **{k: report[name][k] for k in ("precision", "recall", "f1", "false_positive_rate")}}
+            for name in ("random_forest", "xgboost")]
+    rows.append({"model": "isolation_forest", **{k: report["unknown_detector"]["test_metrics"][k] for k in ("precision", "recall", "f1", "false_positive_rate")}})
+    pd.DataFrame(rows).to_csv(METRICS_OUT, index=False)
+    Path("reports/behavior_training_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    X = feature_matrix(df, BEHAVIOR_FEATURES, normalized=False)
+    scored = df.copy()
+    for name, prefix in (("random_forest", "rf"), ("xgboost", "xgb"), ("isolation_forest", "if")):
+        model = models[name]
+        joblib.dump({"model": model, "feature_cols": list(X.columns), "metadata": metadata}, Path("models") / f"{name}_behavior.joblib")
+        if prefix == "if":
+            scored["if_pred"] = (model.predict(X) == -1).astype(int)
+            scored["if_score"] = -model.decision_function(X)
+            scored["iso_pred"] = scored["if_pred"]  # legacy aliases
+            scored["iso_score"] = scored["if_score"]
+        else:
+            prediction = model.predict(X)
+            scored[f"{prefix}_pred"] = (prediction == "known_ransomware_like").astype(int) if prefix == "rf" else prediction
+            scored[f"{prefix}_score"] = model.predict_proba(X)[:, 1]
+    # All-window scores are explicitly exploratory, not held-out lead-time evidence.
+    scored["score_scope"] = "exploratory_includes_training_rows"
+    scored["rf_detection_lead_events"] = float("nan")
+    scored.to_csv(SCORED_OUT, index=False)
+    print(f"Saved {METRICS_OUT}, {SCORED_OUT}; synthetic demo scores do not establish model accuracy")
 
-drop_cols = ["window_id", "first_event_index", "last_event_index", "label", "family", "y"]
-feature_cols = [c for c in df.columns if c not in drop_cols]
 
-X = df[feature_cols].fillna(0)
-y = df["y"]
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
-)
-
-results = []
-
-def fpr_from_cm(y_true, y_pred):
-    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tn, fp, fn, tp = cm.ravel()
-    return fp / max(fp + tn, 1)
-
-def evaluate(name, model, y_pred):
-    results.append({
-        "model": name,
-        "precision": precision_score(y_test, y_pred, zero_division=0),
-        "recall": recall_score(y_test, y_pred, zero_division=0),
-        "f1": f1_score(y_test, y_pred, zero_division=0),
-        "false_positive_rate": fpr_from_cm(y_test, y_pred)
-    })
-
-rf = RandomForestClassifier(n_estimators=100, random_state=42)
-rf.fit(X_train, y_train)
-rf_pred = rf.predict(X_test)
-evaluate("Random Forest", rf, rf_pred)
-joblib.dump({"model": rf, "feature_cols": feature_cols}, "models/random_forest_behavior.joblib")
-
-xgb = XGBClassifier(
-    n_estimators=200, max_depth=4, learning_rate=0.05, random_state=42, subsample=0.9, eval_metric="logloss", colsample_bytree=0.9
-)
-xgb.fit(X_train, y_train)
-xgb_pred = xgb.predict(X_test)
-evaluate("XGBoost", xgb, xgb_pred)
-joblib.dump({"model": xgb, "feature_cols": feature_cols}, "models/xgboost_behavior.joblib")
-
-benign_train = X_train[y_train == 0]
-iso = IsolationForest(n_estimators=200, contamination=0.20, random_state=42)
-iso.fit(benign_train)
-iso_raw = iso.predict(X_test)
-iso_pred = (iso_raw == -1).astype(int)
-evaluate("Isolation Forest", iso, iso_pred)
-joblib.dump({"model": iso, "feature_cols": feature_cols}, "models/isolation_forest_behavior.joblib")
-
-metrics = pd.DataFrame(results)
-metrics.to_csv(METRICS_OUT, index = False)
-
-# Score all windows with RF, XGB, IF
-scored = df.copy()
-scored["rf_score"] = rf.predict_proba(X)[:, 1]
-scored["rf_pred"] = rf.predict(X)
-scored["xgb_pred"] = xgb.predict(X)
-scored["xgb_score"] = xgb.predict_proba(X)[:, 1]
-scored["iso_pred"] = (iso.predict(X) == -1).astype(int)
-scored["iso_score"] = -iso.decision_function(X)
-
-# Detection lead events using RF
-ransom_start_rows = scored[scored["y"] == 1]
-lead_events = None
-
-if len(ransom_start_rows) > 0:
-    start_idx = ransom_start_rows["first_event_index"].min()
-    after_start = scored[scored["first_event_index"] >= start_idx].copy()
-    after_start["cum_affected"] = after_start["affected_file_events"].cumsum()
-
-    critical = after_start[after_start["cum_affected"] >= 50]
-    alert = after_start[after_start["rf_pred"] == 1]
-
-    if len(critical) > 0 and len(alert) > 0:
-        critical_event = int(critical.iloc[0]["first_event_index"])
-        alert_event = int(alert.iloc[0]["first_event_index"])
-        lead_events = critical_event - alert_event
-
-scored["rf_detection_lead_events"] = lead_events if lead_events is not None else np.nan
-scored.to_csv(SCORED_OUT, index=False)
-
-print("[+] Metrics: ")
-print(metrics)
-print()
-print("[+] Detection lead events:", lead_events)
-print("[+] Saved:", METRICS_OUT)
-print("[+} Saved:", SCORED_OUT)
+if __name__ == "__main__":
+    main()

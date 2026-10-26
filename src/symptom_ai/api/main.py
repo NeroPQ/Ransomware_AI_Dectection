@@ -1,11 +1,18 @@
 from pathlib import Path
 import json
+import logging
+import os
+import secrets
 from typing import Dict, Any
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, Header, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, field_validator
+from symptom_ai.dataset_ingestion.ingest_all_available_datasets import SYMPTOMS
+from symptom_ai.models.evaluation import SYMPTOM_FEATURES
 
 from symptom_ai.models.risk_scorer import calculate_symptom_risk
 from symptom_ai.response_engine.response_policy import recommend_response
@@ -34,18 +41,59 @@ app = FastAPI(
 
 
 class SymptomRequest(BaseModel):
-    symptoms: Dict[str, float]
+    model_config = ConfigDict(extra="forbid")
+    symptoms: Dict[str, StrictFloat] = Field(min_length=1, max_length=256)
+
+    @field_validator("symptoms")
+    @classmethod
+    def validate_symptoms(cls, symptoms):
+        import math
+        unknown = set(symptoms) - set(SYMPTOMS)
+        if unknown:
+            raise ValueError(f"Unknown symptom names: {sorted(unknown)}")
+        if any(not math.isfinite(v) or not 0 <= v <= 1 for v in symptoms.values()):
+            raise ValueError("Symptoms must be finite values in [0, 1]")
+        return symptoms
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request, exc):
+    # Do not echo nonfinite input values (JSON cannot encode them) or caller data.
+    details = [{"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+               for error in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": details})
+
+
+def require_api_key(x_api_key: str | None = Header(default=None)):
+    expected = os.getenv("SYMPTOM_AI_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="Sensitive operations disabled: configure SYMPTOM_AI_API_KEY")
+    if not x_api_key or not secrets.compare_digest(x_api_key.encode("utf-8"), expected.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="Valid X-API-Key required")
+
+
+@app.exception_handler(FileNotFoundError)
+async def missing_artifact_handler(request, exc):
+    logging.getLogger(__name__).warning("Required model/reference artifact unavailable")
+    return JSONResponse(status_code=503, content={"detail": "Model/reference artifacts unavailable; train models and build references first"})
 
 
 def load_artifacts():
-    with open(MODEL_DIR / "model_metadata.json", "r", encoding="utf-8") as f:
-        metadata = json.load(f)
-
-    primary = metadata.get("primary_classifier", "ransomware_symptom_classifier.joblib")
-
-    clf = joblib.load(MODEL_DIR / primary)
-    iso = joblib.load(MODEL_DIR / "unknown_behavior_detector.joblib")
-
+    try:
+        metadata = json.loads((MODEL_DIR / "model_metadata.json").read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict) or metadata.get("feature_schema_version") != 2:
+            raise HTTPException(status_code=503, detail="Legacy models require re-ingestion and retraining with feature schema 2")
+        features = metadata.get("feature_columns")
+        if not isinstance(features, list) or not features or not set(features) <= set(SYMPTOM_FEATURES):
+            raise ValueError("Invalid feature schema")
+        primary = metadata.get("primary_classifier")
+        if primary not in {"ransomware_symptom_classifier.joblib", "random_forest_classifier.joblib", "xgboost_classifier.joblib"}:
+            raise ValueError("Invalid classifier name")
+        clf = joblib.load(MODEL_DIR / primary)
+        iso = joblib.load(MODEL_DIR / "unknown_behavior_detector.joblib")
+    except (OSError, ValueError, EOFError, KeyError) as exc:
+        logging.getLogger(__name__).warning("Model artifact load failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="Model artifacts unavailable or incompatible; retrain and check local artifacts") from exc
     return clf, iso, metadata
 
 
@@ -166,8 +214,12 @@ def health():
 
 @app.get("/model/info")
 def model_info():
-    with open(MODEL_DIR / "model_metadata.json", "r", encoding="utf-8") as f:
-        metadata = json.load(f)
+    try:
+        metadata = json.loads((MODEL_DIR / "model_metadata.json").read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict):
+            raise ValueError("Invalid metadata")
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=503, detail="Model metadata unavailable or invalid") from exc
 
     return {
         "models": metadata.get("models"),
@@ -184,7 +236,7 @@ def predict(req: SymptomRequest) -> Dict[str, Any]:
     return infer(req)
 
 
-@app.post("/respond")
+@app.post("/respond", dependencies=[Depends(require_api_key)])
 def respond(req: SymptomRequest) -> Dict[str, Any]:
     result = infer(req)
 
@@ -198,6 +250,8 @@ def respond(req: SymptomRequest) -> Dict[str, Any]:
         lockdown_result = run_protective_lockdown(case)
 
     result["lockdown_result"] = lockdown_result
+    result["containment_executed"] = False
+    result["simulated_containment_executed"] = bool(lockdown_result)
 
     out = REPORT_DIR / "last_response_result.json"
     out.write_text(json.dumps(result, indent=2), encoding="utf-8")
@@ -205,7 +259,7 @@ def respond(req: SymptomRequest) -> Dict[str, Any]:
     return result
 
 
-@app.get("/cases/unknown")
+@app.get("/cases/unknown", dependencies=[Depends(require_api_key)])
 def list_unknown_cases():
     files = sorted(UNKNOWN_CASE_DIR.glob("*.json"), reverse=True)
     return {
@@ -214,7 +268,7 @@ def list_unknown_cases():
     }
 
 
-@app.get("/backups")
+@app.get("/backups", dependencies=[Depends(require_api_key)])
 def list_backups():
     dirs = sorted([p for p in BACKUP_DIR.glob("*") if p.is_dir()], reverse=True)
     return {
@@ -223,7 +277,7 @@ def list_backups():
     }
 
 
-@app.post("/prepare-demo-docs")
+@app.post("/prepare-demo-docs", dependencies=[Depends(require_api_key)])
 def prepare_demo_docs():
     ensure_demo_protected_docs()
     return {
@@ -233,7 +287,7 @@ def prepare_demo_docs():
     }
 
 
-@app.post("/unlock-demo")
+@app.post("/unlock-demo", dependencies=[Depends(require_api_key)])
 def unlock_demo():
     unlocked = unlock_protected_files_demo()
     return {"status": "ok", "unlocked_files": unlocked}
@@ -242,7 +296,7 @@ def unlock_demo():
 try:
     from symptom_ai.explainability.evidence_matcher import build_decision_explanation
 
-    @app.post("/explain")
+    @app.post("/explain", dependencies=[Depends(require_api_key)])
     def explain(req: SymptomRequest) -> Dict[str, Any]:
         result = infer(req)
 
@@ -261,11 +315,11 @@ try:
             "decision_explanation": explanation
         }
 
-except Exception as e:
-    @app.post("/explain")
+except ImportError:
+    @app.post("/explain", dependencies=[Depends(require_api_key)])
     def explain_unavailable(req: SymptomRequest) -> Dict[str, Any]:
         return {
             "status": "explainability_not_ready",
-            "detail": str(e),
+            "detail": "Explainability module unavailable",
             "inference": infer(req)
         }

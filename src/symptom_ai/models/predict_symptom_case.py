@@ -60,13 +60,14 @@ def predict_case(case_name: str, case: dict):
     row = {col: float(case.get(col, 0.0)) for col in feature_cols}
     X = pd.DataFrame([row], columns=feature_cols)
 
-    pred = clf.predict(X)[0]
+    from symptom_ai.api.main import normalize_prediction
+    pred = normalize_prediction(clf.predict(X)[0], metadata)
 
     probabilities = {}
     if hasattr(clf, "predict_proba"):
         proba = clf.predict_proba(X)[0]
         for cls, prob in zip(clf.classes_, proba):
-            probabilities[str(cls)] = round(float(prob), 4)
+            probabilities[normalize_prediction(cls, metadata)] = round(float(prob), 4)
 
     iso_raw = float(iso.decision_function(X)[0])
     iso_pred = int(iso.predict(X)[0])

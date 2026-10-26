@@ -16,6 +16,8 @@ STOP_SIGNAL = Path("data/custom_sandbox/control/STOP_SIGNAL.json")
 
 
 CRITICAL_ALERT_TYPES = {
+    "file_impact_containment_recommended",
+    "file_impact_needs_review",
     "known_ransomware_contained",
     "unknown_ransomware_contained",
     "ransomware_impact_contained",

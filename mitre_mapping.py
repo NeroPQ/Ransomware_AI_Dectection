@@ -1,9 +1,12 @@
 import pandas as pd
 import os
+from pathlib import Path
 
 INPUT = "reports/behavior_scored_windows.csv"
 OUTPUT = "reports/mitre_alerts.csv"
 
+if not Path(INPUT).is_file():
+    raise SystemExit(f"Missing scored windows: {INPUT}; run train_behavior_models.py first")
 df = pd.read_csv(INPUT)
 alerts = []
 
@@ -79,7 +82,7 @@ for _, row in df.iterrows():
             "Medium"
         )
 
-out = pd.DataFrame(alerts)
+out = pd.DataFrame(alerts, columns=["window_id", "first_event_index", "risk_score", "technique", "tactic", "evidence", "explanation", "severity"])
 os.makedirs("reports", exist_ok=True)
 out.to_csv(OUTPUT, index=False)
 

@@ -1,577 +1,138 @@
-# Ransomware AI Detection and Adaptive Response System
+# Ransomware AI Detection and Response Simulation
 
-> AI-based continuous behavioral monitoring, ransomware symptom detection, adaptive learning, and SOC-style response simulation.
+A Python research prototype for classifying normalized behavioral observations, scoring anomalies, and demonstrating a safe response workflow. Existing models are Random Forest, XGBoost, and Isolation Forest; FastAPI, Prometheus, Grafana, and Streamlit expose results.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
-![FastAPI](https://img.shields.io/badge/API-FastAPI-green)
-![Grafana](https://img.shields.io/badge/Monitoring-Grafana-orange)
-![Prometheus](https://img.shields.io/badge/Metrics-Prometheus-red)
-![License](https://img.shields.io/badge/Project-Academic%20Research-purple)
+**This is a lab simulation, not a production endpoint agent.** No ransomware is executed. No real process termination, host isolation, network blocking, or file encryption is implemented. Synthetic examples test pipeline behavior and cannot establish model accuracy or zero-day detection.
 
----
+The [foundation audit](docs/FOUNDATION_AUDIT.md) records baseline failures, changes, verification results, and remaining work.
 
-## Overview
+## Setup
 
-This project is a safe ransomware detection and response prototype designed for academic research and cybersecurity demonstration purposes.
-
-The system continuously monitors simulated behavioral events, extracts ransomware-related symptoms, classifies suspicious activity using machine learning models, detects unknown patterns using anomaly detection, and triggers protective response policies.
-
-The project focuses on behavioral indicators such as:
-
-* Rapid file modification activity
-* Suspicious file extension changes
-* High-impact file operations
-* Abnormal process and registry behavior
-* Unusual event sequences
-* Unknown ransomware-like behavior
-* Simulated multi-host file impact
-
-The system does **not** execute real ransomware samples. All ransomware behaviors are reproduced through safe event simulation and sandbox logs.
-
----
-
-## Key Features
-
-* Continuous event monitoring from simulated enterprise logs
-* Behavioral ransomware detection using machine learning
-* XGBoost-based primary classification
-* Random Forest baseline model
-* Isolation Forest anomaly detection for unknown behavior
-* Rule-based file impact detection
-* Adaptive learning from missed detection scenarios
-* Learned behavior signature matching
-* FastAPI prediction service
-* Grafana SOC dashboard
-* Prometheus metrics exporter
-* Email alert notification
-* Protective lockdown simulation
-* MITRE ATT&CK behavior mapping
-* Safe ransomware scenario runner
-
----
-
-## System Architecture
-
-```mermaid
-flowchart LR
-
-A[Safe Scenario Runner] --> B[Event Logs]
-B --> C[Live AI Watcher]
-
-C --> D[XGBoost Classifier]
-C --> E[Isolation Forest]
-C --> F[Rule-Based File Impact Engine]
-C --> G[Learned Behavior Signature Matcher]
-
-D --> H[Risk Decision Engine]
-E --> H
-F --> H
-G --> H
-
-H --> I[Protective Lockdown Policy]
-H --> J[Live Alert Logs]
-H --> K[Current System Status]
-
-J --> L[Grafana Exporter]
-K --> L
-L --> M[Prometheus]
-M --> N[Grafana SOC Dashboard]
-
-H --> O[Email Alert Notifier]
-```
-
----
-
-## Detection Pipeline
-
-```mermaid
-flowchart TD
-
-A[Incoming Behavioral Events] --> B[Window Aggregation]
-B --> C[Feature Engineering]
-
-C --> D[XGBoost Classification]
-C --> E[Isolation Forest Anomaly Detection]
-C --> F[File Impact Rules]
-C --> G[Behavior Signature Matching]
-
-D --> H[Risk Score]
-E --> H
-F --> H
-G --> H
-
-H --> I{Response Policy}
-
-I -->|Benign| J[Monitor Only]
-I -->|Suspicious| K[Early Warning]
-I -->|Known Ransomware| L[Containment]
-I -->|Unknown Ransomware| M[Protective Lockdown]
-```
-
----
-
-## AI Models
-
-### 1. XGBoost Classifier
-
-The main supervised learning model is XGBoost.
-
-It predicts whether a behavioral window is:
-
-```text
-benign
-known_ransomware_like
-suspicious_behavior
-```
-
-Example output:
-
-```text
-Predicted Label: known_ransomware_like
-Risk Score: 0.93
-Policy: containment
-```
-
----
-
-### 2. Random Forest Baseline
-
-Random Forest is used as a baseline model for comparison.
-
-It helps evaluate whether the XGBoost model provides better performance for behavioral ransomware detection.
-
----
-
-### 3. Isolation Forest
-
-Isolation Forest is used to detect unknown or unusual behavioral patterns.
-
-This is useful for simulated zero-day ransomware behavior where the pattern may not exist in the supervised training dataset.
-
-Example:
-
-```text
-Known Model Prediction: benign
-Anomaly Detection: high
-File Impact: true
-Final Policy: protective_lockdown
-```
-
----
-
-### 4. Rule-Based File Impact Detection
-
-The system also includes rule-based detection for high-impact ransomware symptoms.
-
-Examples include:
-
-```text
-large number of file modifications
-file extension changes
-creation of ransom note indicators
-high impact events across multiple hosts
-suspicious file locking behavior
-```
-
-This helps prevent missed detections when the ML model produces a low-risk prediction.
-
----
-
-### 5. Adaptive Learning and Signature Matching
-
-When the system observes a missed ransomware-like attack with confirmed file impact, it can save the behavior pattern as a learned signature.
-
-On the next similar attack:
-
-```text
-Scenario Run 1:
-Unknown ransomware behavior
-Model prediction: benign
-File impact detected
-Learning signature created
-
-Scenario Run 2:
-Same behavior appears again
-Learned signature matched
-System predicts learned_unknown_ransomware
-Protective lockdown triggered
-```
-
----
-
-## Project Structure
-
-```text
-Ransomware_AI_Dectection/
-│
-├── src/
-│   └── symptom_ai/
-│       ├── api/
-│       │   └── main.py
-│       │
-│       ├── auto_learning/
-│       │   └── auto_retraining_pipeline.py
-│       │
-│       ├── dataset_ingestion/
-│       │   ├── build_unified_symptom_dataset.py
-│       │   ├── ingest_all_available_datasets.py
-│       │   ├── parser_csu_ransomware.py
-│       │   └── parser_ransomset.py
-│       │
-│       ├── explainability/
-│       │   └── evidence_matcher.py
-│       │
-│       ├── live_monitoring/
-│       │   ├── live_log_ai_watcher.py
-│       │   ├── demo_scenario_runner.py
-│       │   ├── email_alert_notifier.py
-│       │   ├── grafana_prometheus_exporter.py
-│       │   └── safe_event_generator.py
-│       │
-│       ├── models/
-│       │   ├── train_symptom_models.py
-│       │   ├── predict_symptom_case.py
-│       │   ├── build_training_reference.py
-│       │   └── risk_scorer.py
-│       │
-│       ├── response_engine/
-│       │   └── protective_lockdown.py
-│       │
-│       ├── sandbox/
-│       │   └── replay_mlran_cic_sandbox.py
-│       │
-│       └── simulation/
-│           └── safe_progressive_ransomware_sim.py
-│
-├── monitoring/
-│   ├── docker-compose.yml
-│   ├── prometheus/
-│   │   └── prometheus.yml
-│   └── grafana/
-│       └── ransomware_ai_dashboard.json
-│
-├── data/
-│   └── raw/
-│       └── dataset_registry.json
-│
-├── check_demo_result.sh
-├── reset_dashboard_only.sh
-├── requirements.txt
-├── .env.example
-└── .gitignore
-```
-
----
-
-## Dataset Strategy
-
-The project uses a unified behavioral symptom dataset built from multiple ransomware and malware-related sources.
-
-The dataset integration focuses on normalized behavioral features such as:
-
-```text
-file activity
-process activity
-registry activity
-API call behavior
-entropy-related behavior
-network-related behavior
-system event activity
-ransomware impact indicators
-```
-
-Raw datasets are not included in this repository because of size, licensing, and security considerations.
-
-Dataset configuration is stored in:
-
-```text
-data/raw/dataset_registry.json
-```
-
----
-
-## Installation
-
-Clone the repository:
+Use Python 3.13 or 3.14. The pinned scientific dependencies require newer Python versions than the previous README's 3.10 claim; verification for this change used Python 3.14.7. CI covers 3.13 and 3.14.
 
 ```bash
 git clone https://github.com/Wolfsenpai123/Ransomware_AI_Dectection.git
 cd Ransomware_AI_Dectection
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+export PYTHONPATH=src
+python -m unittest discover -s tests -v
 ```
 
-Create a Python virtual environment:
+`httpx` in `requirements-dev.txt` supports FastAPI's test client. No new runtime dependency was introduced. Run commands from the repository root. `.env` is ignored by Git; Python services read exported environment variables rather than implicitly loading this file.
+
+## Safe behavior pipeline
+
+These commands generate CSV events only, aggregate windows, and demonstrate the three existing models:
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python generate_safe_behavior_logs.py
+python build_behavior_features.py
+python train_behavior_models.py --allow-row-split
+python mitre_mapping.py
+streamlit run streamlit_app.py
 ```
 
-Install dependencies:
+Paths now agree: `data/raw/behavior/safe_behavior.csv` → `data/processed/behavior/behavior_features.csv` → `reports/behavior_model_metrics.csv` and `reports/behavior_scored_windows.csv`.
+
+The generator creates one synthetic session containing benign and ransomware-like phases. Training without `--allow-row-split` deliberately fails because one session cannot support independent train/validation/test groups. The override explicitly ignores correlation metadata for a demonstration, still keeps identical feature rows together, and records the limitation in the report. Repeated copies of the same generated session are not independent validation data.
+
+Metrics in the JSON training report describe the held-out partition under the selected split. All-window scores in the CSV include training observations and are marked exploratory. Detection lead time is left unavailable rather than estimated using those training observations. `if_score` is an anomaly score, not a malware probability; `iso_*` aliases remain available.
+
+## Dataset ingestion and evaluation
+
+Raw external datasets and trained artifacts are not shipped. `data/raw/dataset_registry.json` lists expected paths, not proof that data is installed. Inventory available files with:
 
 ```bash
-pip install -r requirements.txt
+python -m symptom_ai.dataset_ingestion.dataset_scanner
 ```
 
----
-
-## Run the FastAPI Service
+After obtaining authorized feature-only data and checking its labels/schema:
 
 ```bash
-source venv/bin/activate
-
-PYTHONPATH=src uvicorn symptom_ai.api.main:app \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --reload
+python -m symptom_ai.dataset_ingestion.parser_csu_ransomware
+python -m symptom_ai.dataset_ingestion.parser_ransomset
+python -m symptom_ai.dataset_ingestion.ingest_extended_available_datasets
+python -m symptom_ai.models.train_symptom_models
+python -m symptom_ai.models.build_training_reference
 ```
 
-API endpoint:
+Missing parsers' inputs produce diagnostics; the unifier requires at least one input. Unrecognized, missing, conflicting, or generic malware labels remain `unknown`. They must be reviewed before binary ransomware training; the trainer rejects them. General malware is not automatically ransomware. The RISS adapter is disabled because its previous features were constructed from target labels. UGRansome's `Prediction` and `Threats` fields are not accepted as verified target/observation evidence.
 
-```text
-http://127.0.0.1:8000
-```
+Training uses an observation allowlist. It excludes source identifiers, labels, scenario fields, response policy, analyst/retraining flags, similarity outputs, and anomaly/unknown decision fields. Existing raw-feature proxy mappings remain approximate: PE sizes, API counts, and network statistics are not direct evidence of encryption, persistence, or C2.
 
-Swagger documentation:
+Raw numeric proxy measurements use the fixed transform `x / (1 + x)` to avoid fitting normalization to held-out data. Missing observations default to zero; negative/nonfinite inputs fail validation. This proxy scale needs domain-specific replacement and validation before operational use. **Re-ingest data and retrain legacy artifacts**: schema version 2 is required by the API, and old min/max-normalized CSVs must not be mixed with regenerated data.
 
-```text
-http://127.0.0.1:8000/docs
-```
+The default split joins all available shared source, session, source-file, family, sample-ID, and identical-feature relationships into disjoint groups. It searches deterministic group splits for both classes in train, validation, and test, and fails when independent groups are insufficient. Source grouping is deliberately conservative and can join whole datasets; missing provenance and near duplicates remain limitations. Reports record grouping columns, group IDs, seeds, partition sizes, and dataset SHA-256.
 
----
+Random Forest versus XGBoost selection uses **validation macro F1**, followed by held-out test reporting. Reports include precision, recall, F1, accuracy, per-class support/results, confusion matrices, and benign false-positive rate. An unavailable FPR is `null`, not zero. Test class proportions are not artificially balanced before splitting.
 
-## Run the Live AI Watcher
+Isolation Forest trains only on benign training observations. Its score threshold is calibrated using benign validation observations at a nominal 5% FPR, with calibration sample count and observed FPR reported. Small samples and tied scores limit calibration; test FPR may differ. Anomalies require investigation and do not establish malware identity or zero-day detection.
+
+## API and response states
 
 ```bash
-source venv/bin/activate
-
-PYTHONPATH=src python src/symptom_ai/live_monitoring/live_log_ai_watcher.py \
-  --window-events 20 \
-  --poll 1 \
-  --reset-offset
+# Generate a local key; use the same exported value for the watcher/demo clients.
+export SYMPTOM_AI_API_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+uvicorn symptom_ai.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-The watcher continuously reads behavioral events and produces:
+`GET /health` is a liveness check; model readiness is separate. Missing/incompatible models return HTTP 503. Predictions require a nonempty `symptoms` dictionary containing recognized feature names and finite numeric values in `[0, 1]`; unknown names, coercible strings, booleans, extra request fields, and invalid ranges return 422.
 
-```text
-current_status.json
-live_alerts.jsonl
-STOP_SIGNAL.json
-learned_behavior_signatures.json
-```
-
----
-
-## Run Grafana and Prometheus
+`/predict`, `/health`, and model information support local read-only demonstrations. `/respond`, `/explain`, `/prepare-demo-docs`, `/unlock-demo`, `/cases/unknown`, and `/backups` require `X-API-Key`. Sensitive routes return 503 until `SYMPTOM_AI_API_KEY` is set, and 401 for an invalid key.
 
 ```bash
-cd monitoring
-docker compose up -d
+curl http://127.0.0.1:8000/health
+curl -X POST http://127.0.0.1:8000/respond \
+  -H "X-API-Key: $SYMPTOM_AI_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"symptoms":{"file_write_burst":0.9,"high_entropy_write":0.9,"backup_disable_attempt":0.9}}'
 ```
 
-Grafana dashboard:
+An isolated anomaly or rename symptom produces a review warning rather than automatic containment. Correlated file evidence or destructive-action indicators can recommend containment. A file-impact indicator in a log is an observation, not confirmation that ransomware damaged a real file.
 
-```text
-http://localhost:3000
-```
+Outputs distinguish `suspicious`, `impact_observed`, `containment_recommended`, `containment_executed`, `simulated_stop_requested`, and `simulated_containment_executed`. Actual containment remains false. The watcher calls `/predict`, writes a cooperative `STOP_SIGNAL.json` for qualifying simulated activity, and does not claim the generator has acknowledged the request. `/respond` may create lab backup copies and a pending case; its lockdown records which demo files would be locked without changing contents or permissions. `/unlock-demo` remains a compatibility operation without permission changes.
 
-Prometheus:
+These defaults are for a trusted local lab. Shared API keys are not enterprise identity/RBAC; TLS, rate limits, deployment isolation, durable queues, artifact integrity, and operational auditing remain future work. Load only trusted local joblib artifacts.
 
-```text
-http://localhost:9090
-```
+## Live demonstrations and reviewed learning
 
-Run the Prometheus exporter:
+With trained symptom artifacts and API running:
 
 ```bash
-PYTHONPATH=src python src/symptom_ai/live_monitoring/grafana_prometheus_exporter.py \
-  --port 9108 \
-  --poll 1
+python -m symptom_ai.live_monitoring.live_log_ai_watcher --window-events 20 --poll 1 --reset-offset
+# In another shell with the same environment:
+python -m symptom_ai.live_monitoring.demo_scenario_runner --help
 ```
 
----
+Benign, suspicious, known-like, and novel-pattern scenarios remain simulations. Novel/impact cases are saved as `pending_review`, with no confirmed label. Repeating a scenario does **not** automatically confirm ransomware or create an approved signature. Legacy automatically learned signature files are ignored. Approved signatures compare observable event rates and symptom magnitudes with multiple impact indicators; `scenario_type` and a few common event names cannot trigger a match by themselves.
 
-## Email Alert Configuration
+Review a case locally using an explicit benign/ransomware label or rejection, analyst identity, and evidence notes:
 
-Create a local `.env` file based on `.env.example`.
+```bash
+python -m symptom_ai.auto_learning.review data/learning_queue/learning_case_EXAMPLE.json \
+  --label benign --reviewer 'local-analyst' --notes 'Reviewed evidence and confirmed legitimate workload'
+python -m symptom_ai.auto_learning.auto_retraining_pipeline
+```
+
+Approval records include an evidence digest; changes to events/symptoms invalidate approval. This local JSON workflow assumes a trusted reviewer and filesystem, not cryptographic reviewer authentication. Approved benign cases support false-positive correction. Pending, rejected, malformed, and legacy cases cannot enter candidate training.
+
+Retraining creates a dataset, models, logs, and reports under a unique `models/versions/candidate_*` directory, preserving the subprocess environment and archiving active artifacts. It never overwrites the active dataset/models on success or failure. Candidate reports require manual review and promotion; no automatic production promotion/rollback mechanism is claimed. If a manual promotion later fails, stop serving and restore the complete matching archived artifact set before restarting. Include preprocessing/version metadata and references in that review.
+
+## Monitoring
 
 ```bash
 cp .env.example .env
+# Set GRAFANA_ADMIN_USER and a unique GRAFANA_ADMIN_PASSWORD in .env.
+docker compose --env-file .env -f monitoring/docker-compose.yml up -d
+python -m symptom_ai.live_monitoring.grafana_prometheus_exporter --port 9108 --poll 1
 ```
 
-Example configuration:
+Grafana (`127.0.0.1:3000`) and Prometheus (`127.0.0.1:9090`) are bound to loopback. Compose refuses unset Grafana credentials. Configure the Prometheus datasource and import `monitoring/grafana/ransomware_ai_dashboard.json`. Linux containers scrape the exporter via `host.docker.internal`; restrict host exporter access to the local/container lab network. Dashboards reflect simulation indicators, not independently verified infection or containment. Image versions/digests should be pinned and reviewed before a deployment.
 
-```text
-EMAIL_DRY_RUN=1
+Email alerts are optional and default to dry-run. Export the SMTP settings from `.env.example` only if intentionally using the notifier. Never commit `.env`, tokens, datasets, or malware samples.
 
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_alert_sender@gmail.com
-SMTP_PASSWORD=your_gmail_app_password
+## Scope and remaining work
 
-EMAIL_FROM=your_alert_sender@gmail.com
-EMAIL_TO=your_receiver@gmail.com
-```
-
-Run the email notifier:
-
-```bash
-PYTHONPATH=src python src/symptom_ai/live_monitoring/email_alert_notifier.py \
-  --poll 0.25 \
-  --alert-interval 1
-```
-
-Never upload `.env`, Gmail App Passwords, API keys, tokens, or personal email credentials to GitHub.
-
----
-
-## Demo Scenarios
-
-The system supports safe simulated ransomware scenarios.
-
-### Scenario 1: Benign Activity
-
-```text
-Expected Result:
-Policy: monitor_only
-Risk: low
-File Impact: false
-STOP_SIGNAL: not created
-```
-
-### Scenario 2: Suspicious Activity
-
-```text
-Expected Result:
-Policy: early_warning
-Risk: medium
-File Impact: false
-```
-
-### Scenario 3: Known Ransomware Behavior
-
-```text
-Expected Result:
-Predicted: known_ransomware_like
-Policy: containment
-STOP_SIGNAL: created
-```
-
-### Scenario 4: Novel Zero-Day Ransomware Behavior
-
-First execution:
-
-```text
-Predicted: benign or suspicious
-File Impact: true
-Learning Case: created
-Learned Signature: saved
-```
-
-Second execution:
-
-```text
-Predicted: learned_unknown_ransomware
-Learned Match: true
-Policy: protective_lockdown
-STOP_SIGNAL: created
-```
-
----
-
-## Protective Lockdown
-
-When a high-risk ransomware event is detected, the system can simulate a protective response.
-
-Examples include:
-
-```text
-create STOP_SIGNAL
-record affected hosts
-record high-impact events
-trigger SOC dashboard alert
-trigger email notification
-save learning signature
-```
-
-This project does not perform real host isolation, network blocking, process killing, or destructive system actions.
-
----
-
-## MITRE ATT&CK Mapping
-
-The system can map simulated ransomware behavior to MITRE ATT&CK techniques.
-
-Example techniques:
-
-```text
-T1486 - Data Encrypted for Impact
-T1490 - Inhibit System Recovery
-T1059 - Command and Scripting Interpreter
-T1070 - Indicator Removal
-T1027 - Obfuscated Files or Information
-```
-
----
-
-## Security and Safety Disclaimer
-
-This repository is created strictly for educational, research, and defensive cybersecurity purposes.
-
-The repository does not contain:
-
-```text
-real ransomware binaries
-malicious executable files
-password-protected malware archives
-stolen data
-real victim logs
-ransomware source code
-credential files
-Gmail app passwords
-API keys
-```
-
-All ransomware behaviors are simulated through safe event generation, logs, sandbox scenarios, and controlled file impact demonstrations.
-
----
-
-## Limitations
-
-* The system currently uses simulated and normalized behavioral logs.
-* Detection performance depends on training data quality.
-* Unknown ransomware detection may still produce false positives.
-* The protective lockdown is a safe simulation rather than real endpoint isolation.
-* Raw datasets and trained model artifacts are intentionally excluded from GitHub.
-
----
-
-## Future Improvements
-
-* Real SIEM integration
-* Wazuh integration
-* Sysmon event ingestion
-* Elastic Stack integration
-* Automated model retraining
-* Better explainability dashboards
-* Multi-host attack correlation
-* More ransomware family behavior profiles
-* Improved zero-day anomaly detection
-* Real SOC incident workflow integration
-
----
-
-## Authors
-
-Academic cybersecurity research project.
-
-Repository:
-
-```text
-https://github.com/Wolfsenpai123/Ransomware_AI_Dectection
-```
-
----
-
-## License
-
-This project is intended for academic and research purposes only.
+This hardening task preserves the current model families and simulation workflow. It does not implement fileless malware detection, real endpoint collection, process termination, host isolation, or malware execution. Priority follow-up work is reviewed source schemas/labels, independent benign workloads and held-out families/sessions, realistic feature scales, calibration uncertainty, near-duplicate analysis, and a reviewed artifact release process. Enterprise agent functionality requires separate design and authorization.

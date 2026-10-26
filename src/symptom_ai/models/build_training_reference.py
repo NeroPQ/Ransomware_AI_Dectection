@@ -51,13 +51,9 @@ def main():
 
     print("[+] Reference shape:", df.shape)
 
-    feature_cols = [
-        c for c in df.columns
-        if c not in NON_FEATURE_COLS
-        and pd.api.types.is_numeric_dtype(df[c])
-    ]
-
-    X = df[feature_cols].fillna(0)
+    from symptom_ai.models.evaluation import feature_matrix
+    X = feature_matrix(df)
+    feature_cols = list(X.columns)
 
     print("[+] Fitting NearestNeighbors...")
     nn = NearestNeighbors(

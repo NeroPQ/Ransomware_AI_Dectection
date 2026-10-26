@@ -45,7 +45,7 @@ def find_nearest_training_rows(symptoms: dict, top_k: int = 5):
     row = {col: float(symptoms.get(col, 0.0)) for col in feature_cols}
     X = pd.DataFrame([row], columns=feature_cols)
 
-    distances, indices = nn.kneighbors(X, n_neighbors=top_k)
+    distances, indices = nn.kneighbors(X, n_neighbors=min(top_k, len(meta)))
 
     results = []
 

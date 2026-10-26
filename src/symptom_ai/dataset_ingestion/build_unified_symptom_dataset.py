@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+from symptom_ai.dataset_ingestion.validation import combine_frames
 
 OUT = Path("data/symptom_labels/unified_symptom_dataset.csv")
 OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -22,16 +23,7 @@ def main():
     if not frames:
         raise SystemExit("[!] No symptom datasets found.")
 
-    all_cols = sorted(set().union(*[set(df.columns) for df in frames]))
-    aligned = []
-
-    for df in frames:
-        for col in all_cols:
-            if col not in df.columns:
-                df[col] = 0.0
-        aligned.append(df[all_cols])
-
-    final = pd.concat(aligned, ignore_index=True)
+    final = combine_frames(frames)
     final.to_csv(OUT, index=False)
 
     print(f"\n[+] Unified symptom dataset saved to {OUT}")
