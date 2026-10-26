@@ -10,7 +10,7 @@ BASE = Path("data/simulated_enterprise")
 REPORT_DIR = Path("reports/incidents")
 UNKNOWN_DIR = Path("data/unknown_cases")
 
-API_URL = "http://localhost:8000/respond"
+API_URL = os.getenv("SYMPTOM_AI_API_BASE_URL", "http://localhost:8000").rstrip("/") + "/respond"
 
 HOSTS = [
     "host_hr",

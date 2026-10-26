@@ -1,11 +1,5 @@
 from pathlib import Path
 import json
-import joblib
-import pandas as pd
-
-from symptom_ai.models.risk_scorer import calculate_symptom_risk
-from symptom_ai.response_engine.response_policy import recommend_response
-
 
 MODEL_DIR = Path("models")
 REPORT_DIR = Path("reports/symptom_ai")
@@ -13,13 +7,8 @@ REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_models():
-    clf = joblib.load(MODEL_DIR / "ransomware_symptom_classifier.joblib")
-    iso = joblib.load(MODEL_DIR / "unknown_behavior_detector.joblib")
-
-    with open(MODEL_DIR / "model_metadata.json", "r", encoding="utf-8") as f:
-        metadata = json.load(f)
-
-    return clf, iso, metadata
+    from symptom_ai.api.main import load_artifacts
+    return load_artifacts()
 
 
 def build_known_ransomware_like_case():
@@ -54,51 +43,9 @@ def build_unknown_high_risk_case():
 
 
 def predict_case(case_name: str, case: dict):
-    clf, iso, metadata = load_models()
-    feature_cols = metadata["feature_columns"]
-
-    row = {col: float(case.get(col, 0.0)) for col in feature_cols}
-    X = pd.DataFrame([row], columns=feature_cols)
-
-    from symptom_ai.api.main import normalize_prediction
-    pred = normalize_prediction(clf.predict(X)[0], metadata)
-
-    probabilities = {}
-    if hasattr(clf, "predict_proba"):
-        proba = clf.predict_proba(X)[0]
-        for cls, prob in zip(clf.classes_, proba):
-            probabilities[normalize_prediction(cls, metadata)] = round(float(prob), 4)
-
-    iso_raw = float(iso.decision_function(X)[0])
-    iso_pred = int(iso.predict(X)[0])
-
-    unknown_risk = "high" if iso_pred == -1 else "low"
-
-    if (
-        case.get("backup_disable_attempt", 0) >= 0.7
-        or case.get("shadow_copy_delete_attempt", 0) >= 0.7
-        or case.get("security_tool_tamper", 0) >= 0.7
-    ):
-        unknown_risk = "high"
-
-    risk_score = calculate_symptom_risk(case)
-
-    response = recommend_response(
-        symptoms=case,
-        unknown_risk=unknown_risk
-    )
-
-    return {
-        "case_name": case_name,
-        "input_symptoms": case,
-        "predicted_label": pred,
-        "prediction_probabilities": probabilities,
-        "risk_score": risk_score,
-        "isolation_forest_raw_score": round(iso_raw, 4),
-        "isolation_forest_prediction": iso_pred,
-        "unknown_risk": unknown_risk,
-        "response": response
-    }
+    from symptom_ai.api.main import infer, SymptomRequest
+    return {"case_name": case_name, "input_symptoms": case,
+            **infer(SymptomRequest(symptoms=case))}
 
 
 def main():

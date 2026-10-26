@@ -132,6 +132,18 @@ def metrics(y_true, y_pred, labels):
             "confusion_matrix_labels": labels, "confusion_matrix": cm.tolist()}
 
 
+def calibrate_benign_threshold(model, calibration, *, target_fpr=0.05):
+    """Shared lower-tail calibration; ties at the threshold are inliers."""
+    if not 0 < target_fpr < 1 or len(calibration) < 2:
+        raise ValueError("Calibration requires at least two benign rows and FPR in (0, 1)")
+    threshold = float(np.quantile(model.score_samples(calibration), target_fpr))
+    model.offset_ = threshold
+    return {"threshold": threshold, "target_validation_fpr": target_fpr,
+            "benign_calibration_rows": len(calibration),
+            "observed_validation_fpr": float((model.predict(calibration) == -1).mean()),
+            "threshold_comparison": "score_samples < threshold"}
+
+
 def fit_benign_detector(X_train, y_train, X_validation, y_validation, *, target_fpr=0.05):
     benign = X_train.loc[np.asarray(y_train) == "benign"]
     calibration = X_validation.loc[np.asarray(y_validation) == "benign"]
@@ -139,11 +151,7 @@ def fit_benign_detector(X_train, y_train, X_validation, y_validation, *, target_
         raise ValueError("Benign-only Isolation Forest requires at least two training and two validation benign samples")
     iso = IsolationForest(n_estimators=150, contamination="auto", random_state=42, n_jobs=-1)
     iso.fit(benign.sample(n=min(len(benign), 100000), random_state=42))
-    threshold = float(np.quantile(iso.score_samples(calibration), target_fpr))
-    # Preserve sklearn predict/decision_function interfaces with the calibrated offset.
-    iso.offset_ = threshold
+    calibration_info = calibrate_benign_threshold(iso, calibration, target_fpr=target_fpr)
     return iso, {"training": "benign_only", "training_rows": min(len(benign), 100000),
-                 "threshold": threshold, "target_validation_fpr": target_fpr,
-                 "benign_calibration_rows": len(calibration),
-                 "observed_validation_fpr": float((iso.predict(calibration) == -1).mean()),
+                 **calibration_info,
                  "limitation": "Anomalies are not confirmed malware and do not prove zero-day detection"}

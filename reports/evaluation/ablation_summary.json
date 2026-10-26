@@ -1,0 +1,237 @@
+{
+  "generated_at": "2026-06-28T15:28:00",
+  "evaluation_scope": "Safe simulated scenario ablation only. These are not held-out family test-set metrics.",
+  "window_label_definition": "All windows from ransomware-labelled scenarios are counted as ransomware windows for this experimental operational comparison.",
+  "benign_case": "software_update_like",
+  "ransomware_cases": [
+    "known_progressive",
+    "novel_zero_day"
+  ],
+  "methods": [
+    {
+      "method": "rule_only",
+      "window_level": {
+        "true_positive_windows": 2,
+        "false_positive_windows": 0,
+        "true_negative_windows": 3,
+        "false_negative_windows": 4,
+        "precision": 1.0,
+        "recall": 0.3333,
+        "f1": 0.5,
+        "false_positive_rate": 0.0
+      },
+      "scenario_level": {
+        "ransomware_scenarios": 2,
+        "ransomware_scenarios_detected": 1,
+        "scenario_detection_rate": 0.5,
+        "benign_scenarios": 1,
+        "benign_scenarios_alerted": 0,
+        "scenario_false_positive_rate": 0.0
+      },
+      "lead_time": {
+        "positive_lead_times": [],
+        "mean_positive_lead_events": null
+      },
+      "per_case": [
+        {
+          "case_id": "software_update_like",
+          "truth": "benign",
+          "total_windows": 3,
+          "detected_windows": 0,
+          "first_detection_event_index": null,
+          "first_high_impact_event_index": null,
+          "detection_lead_events": null
+        },
+        {
+          "case_id": "known_progressive",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 2,
+          "first_detection_event_index": 40,
+          "first_high_impact_event_index": 31,
+          "detection_lead_events": -9
+        },
+        {
+          "case_id": "novel_zero_day",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 0,
+          "first_detection_event_index": null,
+          "first_high_impact_event_index": 35,
+          "detection_lead_events": null
+        }
+      ]
+    },
+    {
+      "method": "xgboost_only",
+      "window_level": {
+        "true_positive_windows": 2,
+        "false_positive_windows": 0,
+        "true_negative_windows": 3,
+        "false_negative_windows": 4,
+        "precision": 1.0,
+        "recall": 0.3333,
+        "f1": 0.5,
+        "false_positive_rate": 0.0
+      },
+      "scenario_level": {
+        "ransomware_scenarios": 2,
+        "ransomware_scenarios_detected": 2,
+        "scenario_detection_rate": 1.0,
+        "benign_scenarios": 1,
+        "benign_scenarios_alerted": 0,
+        "scenario_false_positive_rate": 0.0
+      },
+      "lead_time": {
+        "positive_lead_times": [
+          11,
+          15
+        ],
+        "mean_positive_lead_events": 13.0
+      },
+      "per_case": [
+        {
+          "case_id": "software_update_like",
+          "truth": "benign",
+          "total_windows": 3,
+          "detected_windows": 0,
+          "first_detection_event_index": null,
+          "first_high_impact_event_index": null,
+          "detection_lead_events": null
+        },
+        {
+          "case_id": "known_progressive",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 1,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 31,
+          "detection_lead_events": 11
+        },
+        {
+          "case_id": "novel_zero_day",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 1,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 35,
+          "detection_lead_events": 15
+        }
+      ]
+    },
+    {
+      "method": "xgboost_plus_isolation_forest",
+      "window_level": {
+        "true_positive_windows": 3,
+        "false_positive_windows": 0,
+        "true_negative_windows": 3,
+        "false_negative_windows": 3,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6667,
+        "false_positive_rate": 0.0
+      },
+      "scenario_level": {
+        "ransomware_scenarios": 2,
+        "ransomware_scenarios_detected": 2,
+        "scenario_detection_rate": 1.0,
+        "benign_scenarios": 1,
+        "benign_scenarios_alerted": 0,
+        "scenario_false_positive_rate": 0.0
+      },
+      "lead_time": {
+        "positive_lead_times": [
+          11,
+          15
+        ],
+        "mean_positive_lead_events": 13.0
+      },
+      "per_case": [
+        {
+          "case_id": "software_update_like",
+          "truth": "benign",
+          "total_windows": 3,
+          "detected_windows": 0,
+          "first_detection_event_index": null,
+          "first_high_impact_event_index": null,
+          "detection_lead_events": null
+        },
+        {
+          "case_id": "known_progressive",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 2,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 31,
+          "detection_lead_events": 11
+        },
+        {
+          "case_id": "novel_zero_day",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 1,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 35,
+          "detection_lead_events": 15
+        }
+      ]
+    },
+    {
+      "method": "full_hybrid",
+      "window_level": {
+        "true_positive_windows": 4,
+        "false_positive_windows": 0,
+        "true_negative_windows": 3,
+        "false_negative_windows": 2,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "f1": 0.8,
+        "false_positive_rate": 0.0
+      },
+      "scenario_level": {
+        "ransomware_scenarios": 2,
+        "ransomware_scenarios_detected": 2,
+        "scenario_detection_rate": 1.0,
+        "benign_scenarios": 1,
+        "benign_scenarios_alerted": 0,
+        "scenario_false_positive_rate": 0.0
+      },
+      "lead_time": {
+        "positive_lead_times": [
+          11,
+          15
+        ],
+        "mean_positive_lead_events": 13.0
+      },
+      "per_case": [
+        {
+          "case_id": "software_update_like",
+          "truth": "benign",
+          "total_windows": 3,
+          "detected_windows": 0,
+          "first_detection_event_index": null,
+          "first_high_impact_event_index": null,
+          "detection_lead_events": null
+        },
+        {
+          "case_id": "known_progressive",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 3,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 31,
+          "detection_lead_events": 11
+        },
+        {
+          "case_id": "novel_zero_day",
+          "truth": "ransomware",
+          "total_windows": 3,
+          "detected_windows": 1,
+          "first_detection_event_index": 20,
+          "first_high_impact_event_index": 35,
+          "detection_lead_events": 15
+        }
+      ]
+    }
+  ]
+}

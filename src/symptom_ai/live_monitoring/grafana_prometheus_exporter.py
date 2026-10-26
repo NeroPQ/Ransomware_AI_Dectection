@@ -52,6 +52,7 @@ ALERT_TYPES = [
     "file_impact_needs_review",
     "learned_unknown_ransomware_detected",
     "early_warning_unknown_behavior",
+    "early_warning_known_ransomware",
     "early_containment_recommended",
     "unknown_ransomware_contained",
     "ransomware_impact_contained",

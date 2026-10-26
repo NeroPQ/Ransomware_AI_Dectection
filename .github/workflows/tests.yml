@@ -22,6 +22,10 @@ jobs:
       - run: python -m unittest discover -s tests -v
         env:
           PYTHONPATH: src
+      - name: Safe integrated demonstrations and evaluation tools
+        run: python scripts/verify_integration.py --summary /tmp/integration-summary.json
+        env:
+          PYTHONPATH: src
       - name: Validate monitoring configuration
         run: |
           if GRAFANA_ADMIN_USER= GRAFANA_ADMIN_PASSWORD= docker compose -f monitoring/docker-compose.yml config --quiet 2>/dev/null; then

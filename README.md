@@ -136,3 +136,95 @@ Email alerts are optional and default to dry-run. Export the SMTP settings from 
 ## Scope and remaining work
 
 This hardening task preserves the current model families and simulation workflow. It does not implement fileless malware detection, real endpoint collection, process termination, host isolation, or malware execution. Priority follow-up work is reviewed source schemas/labels, independent benign workloads and held-out families/sessions, realistic feature scales, calibration uncertainty, near-duplicate analysis, and a reviewed artifact release process. Enterprise agent functionality requires separate design and authorization.
+
+## Integrated family, workload and ablation evaluation
+
+PR #1's reports, figures and scripts remain available. The reports already in
+`reports/evaluation/` and `reports/evaluation_v2/` are **historical legacy results**,
+not verification of the schema-2 models. Their raw source datasets and original
+artifacts are unavailable here. See [integration verification](docs/INTEGRATION_VERIFICATION.md)
+for conflict resolution, actual checks and migration limits.
+
+After re-ingesting reviewed source measurements, the within-source family protocol is:
+
+```bash
+python -m symptom_ai.models.prepare_heldout_family_v2 --family Akira
+python -m symptom_ai.models.evaluate_heldout_family_v2 --family Akira
+python -m symptom_ai.models.prepare_heldout_family_v2 --family LockBit
+python -m symptom_ai.models.evaluate_heldout_family_v2 --family LockBit
+python -m symptom_ai.models.build_heldout_family_summary
+python -m symptom_ai.models.evaluate_isolation_forest_benign_only
+python draw_figure_4_2.py
+python draw_figure_4_3.py
+```
+
+This explicit protocol holds a named family out within one source; it does not
+claim the default trainer's cross-source independence. Sessions, source files,
+sample IDs, other shared families and exact observations cannot cross partitions.
+Preparation manifests bind split CSV checksums; legacy or changed splits must be regenerated.
+Benign fit/calibration/test groups must also be independent. The scripts refuse
+insufficient provenance or groups rather than splitting correlated observations.
+Selected class counts differ from deployment prevalence. Defaults require large
+source datasets; use smaller counts only for an explicitly limited experiment.
+
+Both evaluators share the observation allowlist and range checks. Offline IF
+calibration uses the same threshold function as active training, with equality
+at the threshold treated as an inlier. It writes a separate schema-2 shadow
+candidate bundle and calibration report. The API checks feature **names**, scale,
+schema, and the artifact/report checksum before emitting shadow telemetry.
+Legacy or mismatched artifacts produce an explicit `unavailable` shadow status;
+they cannot change `unknown_risk` or response policy. The active IF is already
+benign-calibrated; `unknown_detector_mode` now describes that fact.
+
+For log-only workloads, with the API running:
+
+```bash
+python -m symptom_ai.live_monitoring.benign_workload_runner \
+  --scenario backup_like --duration 8 --delay 0 --reset-log
+python -m symptom_ai.live_monitoring.ablation_evaluator \
+  --truth benign --case-id backup_like --output-dir reports/benign_verification
+```
+
+Other workload profiles are `cloud_sync_like`, `compression_like` and
+`software_update_like`. Run the ablation evaluator on each retained JSONL input
+in `reports/evaluation/ablation_inputs/`, with its corresponding truth and case ID,
+then run `symptom_ai.live_monitoring.build_ablation_summary`. The full-hybrid
+metric counts actionable warnings/recommendations; an impact-only review or API
+error does not count as successful detection. These scenario logs are simulations,
+not an independent benign enterprise population or proof of pre-impact efficacy.
+Schema-2 ablations name the model methods `classifier_only` and
+`classifier_plus_isolation_forest`, and record `model_used` per window. This
+correctly describes either validation-selected Random Forest or XGBoost.
+The summary reader also supports historical XGBoost-specific result keys,
+but refuses to mix schema versions.
+
+The PR #1 analyst CLI remains available and delegates to the same evidence-bound
+review used by retraining:
+
+```bash
+python -m symptom_ai.live_monitoring.analyst_review --list
+python -m symptom_ai.live_monitoring.analyst_review \
+  --case-file learning_case_EXAMPLE.json --decision approve \
+  --analyst local-analyst --note 'Reviewed positive behavioral evidence'
+```
+
+Use `--decision benign` for a reviewed false positive and `reject` to revoke
+approval. Both consumers immediately honor rejection or evidence changes. Legacy
+`--signature-file` arguments are accepted for compatibility but no separate
+signature database is written. Legacy approvals require re-review with explicit
+notes; there is one approval authority. The watcher exposes schema 2, early alert
+and impact timing, and shadow telemetry. Its legacy `containment_triggered` field
+is always false; `sandbox_safety_stop` describes only the cooperative stop request.
+Use `simulated_stop_requested` and `containment_recommended` for current consumers.
+
+Run all demonstrations/evaluators against a disposable synthetic lab with:
+
+```bash
+PYTHONPATH=src python scripts/verify_integration.py --summary /tmp/integration-summary.json
+```
+
+This starts and stops its own localhost API and leaves active data/models/reports
+untouched. `SYMPTOM_AI_API_BASE_URL` optionally selects a different API base URL
+for watcher and ablation clients. The verification script uses synthetic fixtures
+and validates interfaces only. Monitoring containers are configuration-checked;
+container startup and dashboard rendering remain outside this verification.

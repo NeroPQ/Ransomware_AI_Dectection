@@ -1,0 +1,99 @@
+{
+  "protocol": "Leave-one-family-out evaluation using CSU_Ransomware_Data. The target ransomware family is excluded from training positives and evaluated only in the held-out test set.",
+  "source": "CSU_Ransomware_Data",
+  "families": [
+    "Akira",
+    "LockBit"
+  ],
+  "per_family_results": [
+    {
+      "family": "Akira",
+      "model": "Random Forest",
+      "accuracy": 0.97075,
+      "precision_ransomware": 0.9599413776257938,
+      "recall_ransomware": 0.9825,
+      "f1_ransomware": 0.9710896960711638,
+      "false_positive_rate": 0.041,
+      "false_negative_rate": 0.0175,
+      "tn": 19180,
+      "fp": 820,
+      "fn": 350,
+      "tp": 19650,
+      "train_rows": 200000,
+      "test_rows": 40000
+    },
+    {
+      "family": "Akira",
+      "model": "XGBoost",
+      "accuracy": 0.973525,
+      "precision_ransomware": 0.9589087561176528,
+      "recall_ransomware": 0.98945,
+      "f1_ransomware": 0.9739400054137854,
+      "false_positive_rate": 0.0424,
+      "false_negative_rate": 0.01055,
+      "tn": 19152,
+      "fp": 848,
+      "fn": 211,
+      "tp": 19789,
+      "train_rows": 200000,
+      "test_rows": 40000
+    },
+    {
+      "family": "LockBit",
+      "model": "Random Forest",
+      "accuracy": 0.965425,
+      "precision_ransomware": 0.9602927359936706,
+      "recall_ransomware": 0.971,
+      "f1_ransomware": 0.9656166869701415,
+      "false_positive_rate": 0.04015,
+      "false_negative_rate": 0.029,
+      "tn": 19197,
+      "fp": 803,
+      "fn": 580,
+      "tp": 19420,
+      "train_rows": 200000,
+      "test_rows": 40000
+    },
+    {
+      "family": "LockBit",
+      "model": "XGBoost",
+      "accuracy": 0.9673,
+      "precision_ransomware": 0.9592628992628993,
+      "recall_ransomware": 0.97605,
+      "f1_ransomware": 0.9675836431226765,
+      "false_positive_rate": 0.04145,
+      "false_negative_rate": 0.02395,
+      "tn": 19171,
+      "fp": 829,
+      "fn": 479,
+      "tp": 19521,
+      "train_rows": 200000,
+      "test_rows": 40000
+    }
+  ],
+  "macro_average_across_family_runs": {
+    "random_forest": {
+      "accuracy": 0.9680875,
+      "precision_ransomware": 0.9601170568097321,
+      "recall_ransomware": 0.97675,
+      "f1_ransomware": 0.9683531915206527,
+      "false_positive_rate": 0.040575,
+      "false_negative_rate": 0.02325
+    },
+    "xgboost": {
+      "accuracy": 0.9704125,
+      "precision_ransomware": 0.9590858276902761,
+      "recall_ransomware": 0.98275,
+      "f1_ransomware": 0.970761824268231,
+      "false_positive_rate": 0.041925000000000004,
+      "false_negative_rate": 0.01725
+    }
+  },
+  "integrity_checks": {
+    "all_runs_have_zero_train_test_sample_id_overlap": true,
+    "all_runs_have_zero_target_family_rows_in_training_positive": true,
+    "all_runs_have_zero_non_target_rows_in_test_positive": true
+  },
+  "important_caveat": "The Akira and LockBit runs use the same deterministic benign test subset. Therefore, the two runs must not be interpreted as 40,000 independent benign samples.",
+  "interpretation": "XGBoost achieved higher held-out ransomware recall across the tested families, while Random Forest had slightly lower false positive rates."
+}

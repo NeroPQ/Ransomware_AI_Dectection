@@ -1,0 +1,105 @@
+{
+  "generated_at": "2026-06-28T15:19:48",
+  "safety_note": "This evaluator reads safe JSONL simulation logs only. It does not create STOP_SIGNAL or trigger containment.",
+  "case_id": "novel_zero_day",
+  "truth": "ransomware",
+  "source_event_log": "reports/evaluation/ablation_inputs/novel_zero_day_events.jsonl",
+  "source_event_log_sha256": "b20de1ea97cf5fa52673d4e3d10b791dc8ee85a4868e4a4c790942f976582e15",
+  "window_events": 20,
+  "total_events_in_log": 64,
+  "events_evaluated": 60,
+  "ignored_tail_events": 4,
+  "first_high_impact_event_index": 35,
+  "method_summaries": {
+    "rule_only": {
+      "method": "rule_only",
+      "total_windows": 3,
+      "detected_windows": 0,
+      "first_detection_window": null,
+      "first_detection_event_index": null,
+      "first_high_impact_event_index": 35,
+      "detection_lead_events": null,
+      "scenario_detected": false
+    },
+    "xgboost_only": {
+      "method": "xgboost_only",
+      "total_windows": 3,
+      "detected_windows": 1,
+      "first_detection_window": 1,
+      "first_detection_event_index": 20,
+      "first_high_impact_event_index": 35,
+      "detection_lead_events": 15,
+      "scenario_detected": true
+    },
+    "xgboost_plus_isolation_forest": {
+      "method": "xgboost_plus_isolation_forest",
+      "total_windows": 3,
+      "detected_windows": 1,
+      "first_detection_window": 1,
+      "first_detection_event_index": 20,
+      "first_high_impact_event_index": 35,
+      "detection_lead_events": 15,
+      "scenario_detected": true
+    },
+    "full_hybrid": {
+      "method": "full_hybrid",
+      "total_windows": 3,
+      "detected_windows": 1,
+      "first_detection_window": 1,
+      "first_detection_event_index": 20,
+      "first_high_impact_event_index": 35,
+      "detection_lead_events": 15,
+      "scenario_detected": true
+    }
+  },
+  "windows": [
+    {
+      "window_number": 1,
+      "window_last_event_index": 20,
+      "predicted_label": "known_ransomware_like",
+      "risk_score": 0.0,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": false,
+      "high_impact_event_count": 0,
+      "rule_only_detected": false,
+      "xgboost_only_detected": true,
+      "xgboost_plus_isolation_forest_detected": true,
+      "full_hybrid_alert_type": "early_warning_known_ransomware",
+      "full_hybrid_detected": true
+    },
+    {
+      "window_number": 2,
+      "window_last_event_index": 40,
+      "predicted_label": "benign",
+      "risk_score": 0.0,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": true,
+      "high_impact_event_count": 5,
+      "rule_only_detected": false,
+      "xgboost_only_detected": false,
+      "xgboost_plus_isolation_forest_detected": false,
+      "full_hybrid_alert_type": "missed_detection_infected",
+      "full_hybrid_detected": false
+    },
+    {
+      "window_number": 3,
+      "window_last_event_index": 60,
+      "predicted_label": "benign",
+      "risk_score": 0.0,
+      "unknown_risk": "low",
+      "isolation_forest_prediction": 1,
+      "policy": "monitor_only",
+      "has_file_impact": true,
+      "high_impact_event_count": 17,
+      "rule_only_detected": false,
+      "xgboost_only_detected": false,
+      "xgboost_plus_isolation_forest_detected": false,
+      "full_hybrid_alert_type": "missed_detection_infected",
+      "full_hybrid_detected": false
+    }
+  ]
+}

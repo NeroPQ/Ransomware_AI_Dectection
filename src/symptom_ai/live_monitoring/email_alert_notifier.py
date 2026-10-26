@@ -26,6 +26,7 @@ CRITICAL_ALERT_TYPES = {
 }
 
 HIGH_ALERT_TYPES = {
+    "early_warning_known_ransomware",
     "early_warning_unknown_behavior",
     "unknown_behavior_detected",
     "suspicious_behavior_detected",

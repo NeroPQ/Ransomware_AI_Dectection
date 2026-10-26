@@ -82,3 +82,12 @@ reports/auto_learning/
 reports/behavior_*.csv
 reports/behavior_*.json
 reports/mitre_alerts.csv
+
+# Local source snapshots created during patching
+*.before_*
+
+# Large generated held-out evaluation split CSVs
+reports/evaluation_v2/**/data/
+
+# Preliminary evaluation artifacts
+reports/evaluation/benign_workload_benchmark_preliminary.json
