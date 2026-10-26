@@ -1,0 +1,14 @@
+{
+  "status": "candidate_trained_not_promoted",
+  "source_kind": "synthetic_contract_fixture",
+  "review_manifest_sha256": "e34db59f16ca469159c63209fe54151a2483d01bc852c289b956b7bf51759f41",
+  "review_notes": "Fixture labels and transform only; no real-world review/accuracy asserted",
+  "rows": 300,
+  "feature_columns": [
+    "file_write_burst",
+    "high_entropy_write"
+  ],
+  "production_modified": false,
+  "performance_scope": "Synthetic contract verification only",
+  "validation": "15 raw synthetic CSVs, fixed transform, unification, foundation training and API loading passed"
+}

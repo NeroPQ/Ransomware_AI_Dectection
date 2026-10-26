@@ -97,6 +97,14 @@ def workload_profile(scenario):
             "context": "bulk_archive_creation",
             "host_pool": ["host_accounting", "host_shared_drive"],
         },
+        "development_tools": {
+            "event_types": ["file_read", "file_write", "file_rename", "process_spawn", "rare_process", "build_artifact_write"],
+            "process_name": "build_tool", "context": "build_and_test", "host_pool": ["host_development"],
+        },
+        "routine_administration": {
+            "event_types": ["file_read", "file_write", "api_behavior", "network_beacon", "service_restart", "admin_inventory"],
+            "process_name": "admin_inventory", "context": "scheduled_administration", "host_pool": ["host_admin"],
+        },
         "software_update_like": {
             "event_types": [
                 "file_write",
@@ -177,6 +185,8 @@ def main():
             "cloud_sync_like",
             "compression_like",
             "software_update_like",
+            "development_tools",
+            "routine_administration",
         ],
         required=True,
     )

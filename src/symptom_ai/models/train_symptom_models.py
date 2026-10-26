@@ -17,6 +17,17 @@ MODEL_DIR = Path("models")
 REPORT_DIR = Path("reports/symptom_ai")
 
 
+def classifier_candidates():
+    """Shared fixed model specifications for production and offline evaluation."""
+    rf = RandomForestClassifier(n_estimators=150, max_depth=22, random_state=42,
+                                n_jobs=-1, class_weight="balanced")
+    xgb = XGBClassifier(n_estimators=250, max_depth=7, learning_rate=0.08,
+                        subsample=0.85, colsample_bytree=0.85,
+                        objective="binary:logistic", eval_metric="logloss",
+                        tree_method="hist", random_state=42, n_jobs=-1)
+    return rf, xgb
+
+
 def train_models(df, *, behavior=False, allow_row_split=False):
     validate_labels(df)
     from symptom_ai.models.evaluation import BEHAVIOR_FEATURES
@@ -25,12 +36,7 @@ def train_models(df, *, behavior=False, allow_row_split=False):
     y = df["label"]
     labels = sorted(y.unique())
     label_to_id = {label: i for i, label in enumerate(labels)}
-    rf = RandomForestClassifier(n_estimators=150, max_depth=22, random_state=42,
-                                n_jobs=-1, class_weight="balanced")
-    xgb = XGBClassifier(n_estimators=250, max_depth=7, learning_rate=0.08,
-                        subsample=0.85, colsample_bytree=0.85,
-                        objective="binary:logistic", eval_metric="logloss",
-                        tree_method="hist", random_state=42, n_jobs=-1)
+    rf, xgb = classifier_candidates()
     rf.fit(X.iloc[train], y.iloc[train])
     xgb.fit(X.iloc[train], y.iloc[train].map(label_to_id))
 
