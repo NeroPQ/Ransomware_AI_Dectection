@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import hashlib
 import json
 
 import pandas as pd
@@ -14,50 +15,15 @@ from sklearn.metrics import (
 from xgboost import XGBClassifier
 
 
+from symptom_ai.models.evaluation import feature_matrix
+from symptom_ai.models.heldout_validation import validate_partitions, load_family_split
+
 OUTPUT_ROOT = Path("reports/evaluation_v2")
 
 POSITIVE_LABEL = "known_ransomware_like"
 NEGATIVE_LABEL = "benign"
 
-NON_FEATURE_COLS = {
-    "sample_id",
-    "dataset_source",
-    "family",
-    "behavior_type",
-    "collection_type",
-    "platform",
-    "is_simulated",
-    "is_real_malware_executed",
-    "label",
-    "response_policy",
-}
-
-GENERIC_FAMILIES = {
-    "", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-    "good", "goodware", "benign", "ransom", "ransomware",
-    "android_ransomware", "static_pe", "malware_api_sequence",
-    "unknown_ransomset_family",
-}
-
-
-def canonical_family(value):
-    family = str(value or "").strip()
-
-    if family.lower() in GENERIC_FAMILIES:
-        return None
-
-    if "-" in family:
-        prefix = family.split("-", 1)[0].strip()
-        if prefix:
-            return prefix
-
-    return family or None
-
-
-def load_csv(path):
-    if not path.exists():
-        raise SystemExit(f"Missing required split file: {path}")
-    return pd.read_csv(path)
+from symptom_ai.models.prepare_heldout_family_v2 import canonical_family
 
 
 def metric_summary(y_true, y_pred):
@@ -101,7 +67,7 @@ def validate_split(train_df, test_df, family, source):
         "label",
     }
 
-    missing = required - set(train_df.columns) - set(test_df.columns)
+    missing = (required - set(train_df.columns)) | (required - set(test_df.columns))
     if missing:
         raise SystemExit(f"Missing required columns: {sorted(missing)}")
 
@@ -154,7 +120,9 @@ def validate_split(train_df, test_df, family, source):
             "non-target ransomware rows found in test positives."
         )
 
+    relationship_checks = validate_partitions({"train": train_df, "test": test_df})
     return {
+        **relationship_checks,
         "train_test_sample_id_overlap": 0,
         "target_family_rows_in_training_positive": train_target_count,
         "non_target_rows_in_test_positive": test_non_target_count,
@@ -163,25 +131,25 @@ def validate_split(train_df, test_df, family, source):
     }
 
 
-def main():
+def _main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--family", required=True)
     parser.add_argument(
         "--source",
         default="CSU_Ransomware_Data",
     )
+    parser.add_argument("--output-root", type=Path, default=OUTPUT_ROOT)
     args = parser.parse_args()
 
     family = args.family.strip()
     source = args.source.strip()
 
-    run_dir = OUTPUT_ROOT / f"heldout_{source}_{family}"
+    run_dir = args.output_root / f"heldout_{source}_{family}"
     data_dir = run_dir / "data"
 
-    train_positive = load_csv(data_dir / "train_positive.csv")
-    train_benign = load_csv(data_dir / "train_benign.csv")
-    test_positive = load_csv(data_dir / "test_positive.csv")
-    test_benign = load_csv(data_dir / "test_benign.csv")
+    parts = load_family_split(run_dir)
+    train_positive, train_benign = parts["train_positive"], parts["train_benign"]
+    test_positive, test_benign = parts["test_positive"], parts["test_benign"]
 
     train_df = pd.concat(
         [train_positive, train_benign],
@@ -196,28 +164,9 @@ def main():
     print("[+] Validating held-out split...")
     integrity = validate_split(train_df, test_df, family, source)
 
-    feature_cols = [
-        col
-        for col in train_df.columns
-        if col not in NON_FEATURE_COLS
-        and pd.api.types.is_numeric_dtype(train_df[col])
-    ]
-
-    if not feature_cols:
-        raise SystemExit("No numeric feature columns found.")
-
-    X_train = train_df[feature_cols].apply(
-        pd.to_numeric,
-        errors="coerce",
-    ).fillna(0)
-
-    X_test = test_df.reindex(
-        columns=feature_cols,
-        fill_value=0,
-    ).apply(
-        pd.to_numeric,
-        errors="coerce",
-    ).fillna(0)
+    X_train = feature_matrix(train_df)
+    feature_cols = list(X_train.columns)
+    X_test = feature_matrix(test_df).loc[:, feature_cols]
 
     y_train_text = train_df["label"].astype(str)
     y_test_text = test_df["label"].astype(str)
@@ -299,6 +248,9 @@ def main():
     )
 
     report = {
+        "split_manifest_sha256": hashlib.sha256((run_dir / "split_manifest.json").read_bytes()).hexdigest(),
+        "feature_schema_version": 2,
+        "normalization": "fixed_nonnegative_saturation_v1",
         "protocol": (
             "Leave-one-family-out evaluation. The target ransomware "
             "family is excluded from training positives and used only "
@@ -336,6 +288,13 @@ def main():
 
     print("\n=== HELD-OUT EVALUATION COMPLETE ===")
     print(f"Report saved at: {output_path}")
+
+
+def main():
+    try:
+        _main()
+    except (OSError, ValueError, KeyError) as exc:
+        raise SystemExit(f"Held-out evaluation failed: {exc}") from exc
 
 
 if __name__ == "__main__":

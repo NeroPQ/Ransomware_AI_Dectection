@@ -314,8 +314,8 @@ def run_novel_zero_day(duration, delay):
                 random_path(host),
                 {
                     "novel_behavior": True,
-                    "intended_first_run": "missed_detection_infected",
-                    "intended_second_run": "learned_unknown_detected",
+                    "review_requirement": "explicit_analyst_review",
+                    "repeat_behavior": "no_automatic_approval",
                     "new_extension": ".zday"
                     if event_type in {"stealth_file_lock", "stealth_extension_mutation"} else "",
                 }

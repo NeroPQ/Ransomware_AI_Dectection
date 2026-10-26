@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+from symptom_ai.dataset_ingestion.validation import combine_frames
 
 from symptom_ai.dataset_ingestion.ingest_all_available_datasets import (
     OUT_DIR,
@@ -34,16 +35,7 @@ def build_unified(parts):
         print(f"[+] Loading into unified: {p}")
         frames.append(pd.read_csv(p))
 
-    all_cols = sorted(set().union(*[set(df.columns) for df in frames]))
-    aligned = []
-
-    for df in frames:
-        for c in all_cols:
-            if c not in df.columns:
-                df[c] = 0.0
-        aligned.append(df[all_cols])
-
-    final = pd.concat(aligned, ignore_index=True)
+    final = combine_frames(frames)
     final.to_csv(UNIFIED_OUT, index=False)
 
     print("\n[+] Unified saved:", UNIFIED_OUT)
@@ -76,7 +68,10 @@ def main():
     parts.append(ingest_storage_trace_dataset("RanSAP", "data/raw/ransap"))
     parts.append(ingest_storage_trace_dataset("RanSMAP", "data/raw/ransmap"))
 
-    build_unified(parts)
+    try:
+        build_unified(parts)
+    except ValueError as exc:
+        raise SystemExit(f"Dataset validation failed: {exc}") from exc
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from symptom_ai.live_monitoring.live_log_ai_watcher import (
     aggregate_symptoms,
     call_ai,
     decide_alert_type,
+    EARLY_DETECTION_ALERT_TYPES,
 )
 
 RULE_IMPACT_EVENTS = {
@@ -50,7 +51,7 @@ def chunks(items, size):
         yield items[start:start + size]
 
 
-def is_xgb_ransomware(ai_result):
+def is_classifier_ransomware(ai_result):
     return str(
         ai_result.get("predicted_label", "")
     ).strip().lower() == "known_ransomware_like"
@@ -168,6 +169,9 @@ def main():
 
     args = parser.parse_args()
 
+    if args.window_events <= 0:
+        parser.error("window-events must be positive")
+
     event_path = Path(args.events)
 
     if not event_path.exists():
@@ -190,8 +194,8 @@ def main():
 
     rows = []
     rule_results = []
-    xgb_results = []
-    xgb_if_results = []
+    classifier_results = []
+    classifier_if_results = []
     hybrid_results = []
 
     for window_number, window_events in enumerate(
@@ -217,9 +221,9 @@ def main():
         unknown_risk = ai_result.get("unknown_risk")
 
         rule_hit = is_rule_detected(damage)
-        xgb_hit = is_xgb_ransomware(ai_result)
+        classifier_hit = is_classifier_ransomware(ai_result)
         iso_hit = is_isolation_forest_anomaly(ai_result)
-        xgb_if_hit = xgb_hit or iso_hit
+        classifier_if_hit = classifier_hit or iso_hit
 
         hybrid_alert = decide_alert_type(
             ai_result,
@@ -228,13 +232,8 @@ def main():
             unknown_risk,
         )
 
-        # A missed_detection_infected result means impact happened
-        # without a successful actionable detection.
-        hybrid_hit = hybrid_alert not in {
-            "monitor",
-            "api_error_needs_review",
-            "missed_detection_infected",
-        }
+        # An impact-only review is not a successful detector decision.
+        hybrid_hit = hybrid_alert in EARLY_DETECTION_ALERT_TYPES
 
         last_event_index = event_index(
             window_events[-1],
@@ -245,6 +244,7 @@ def main():
             "window_number": window_number,
             "window_last_event_index": last_event_index,
             "predicted_label": ai_result.get("predicted_label"),
+            "model_used": ai_result.get("model_used"),
             "risk_score": ai_result.get("risk_score"),
             "unknown_risk": unknown_risk,
             "isolation_forest_prediction": ai_result.get(
@@ -257,15 +257,15 @@ def main():
                 "high_impact_event_count"
             ),
             "rule_only_detected": rule_hit,
-            "xgboost_only_detected": xgb_hit,
-            "xgboost_plus_isolation_forest_detected": xgb_if_hit,
+            "classifier_only_detected": classifier_hit,
+            "classifier_plus_isolation_forest_detected": classifier_if_hit,
             "full_hybrid_alert_type": hybrid_alert,
             "full_hybrid_detected": hybrid_hit,
         })
 
         rule_results.append(rule_hit)
-        xgb_results.append(xgb_hit)
-        xgb_if_results.append(xgb_if_hit)
+        classifier_results.append(classifier_hit)
+        classifier_if_results.append(classifier_if_hit)
         hybrid_results.append(hybrid_hit)
 
     output_dir = Path(args.output_dir)
@@ -274,6 +274,8 @@ def main():
     case_id = clean_case_id(args.case_id)
 
     result = {
+        "alert_schema_version": 2,
+        "classifier_note": "Classifier methods use the active validation-selected artifact recorded in each window",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "safety_note": (
             "This evaluator reads safe JSONL simulation logs only. "
@@ -298,16 +300,16 @@ def main():
                 args.truth,
                 first_impact,
             ),
-            "xgboost_only": build_summary(
-                "xgboost_only",
-                xgb_results,
+            "classifier_only": build_summary(
+                "classifier_only",
+                classifier_results,
                 rows,
                 args.truth,
                 first_impact,
             ),
-            "xgboost_plus_isolation_forest": build_summary(
-                "xgboost_plus_isolation_forest",
-                xgb_if_results,
+            "classifier_plus_isolation_forest": build_summary(
+                "classifier_plus_isolation_forest",
+                classifier_if_results,
                 rows,
                 args.truth,
                 first_impact,

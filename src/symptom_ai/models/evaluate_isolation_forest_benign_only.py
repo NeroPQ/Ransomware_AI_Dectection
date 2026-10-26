@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import csv
 import hashlib
 import json
@@ -9,6 +10,10 @@ import pandas as pd
 
 from sklearn.ensemble import IsolationForest
 
+
+from symptom_ai.models.evaluation import feature_matrix, related_groups, calibrate_benign_threshold
+from symptom_ai.models.heldout_validation import validate_partitions, load_family_split
+from symptom_ai.models.prepare_heldout_family_v2 import canonical_family, stable_score
 
 SOURCE = "CSU_Ransomware_Data"
 ROOT = Path("reports/evaluation_v2")
@@ -21,35 +26,6 @@ NEGATIVE_LABEL = "benign"
 FIT_BENIGN_ROWS = 80000
 TARGET_FPRS = [0.01, 0.03, 0.05, 0.10]
 
-NON_FEATURE_COLS = {
-    "sample_id",
-    "dataset_source",
-    "family",
-    "behavior_type",
-    "collection_type",
-    "platform",
-    "is_simulated",
-    "is_real_malware_executed",
-    "label",
-    "response_policy",
-}
-
-
-def stable_score(namespace, sample_id):
-    raw = f"{namespace}|{sample_id}".encode(
-        "utf-8",
-        errors="ignore",
-    )
-    return int.from_bytes(
-        hashlib.blake2b(raw, digest_size=8).digest(),
-        "big",
-    )
-
-
-def load_csv(path):
-    if not path.exists():
-        raise SystemExit(f"Missing file: {path}")
-    return pd.read_csv(path)
 
 
 def validate_benign(df, name):
@@ -67,6 +43,8 @@ def validate_benign(df, name):
             f"{name} source mismatch. Found: {sources}"
         )
 
+    if df["sample_id"].isna().any() or df["sample_id"].astype(str).str.strip().eq("").any():
+        raise SystemExit("Sample IDs must be nonmissing")
     ids = df["sample_id"].astype(str)
 
     if ids.duplicated().any():
@@ -81,13 +59,14 @@ def validate_positive(df, family):
             f"{family} test set must contain only ransomware rows."
         )
 
+    if not df["family"].map(canonical_family).eq(family).all():
+        raise SystemExit(f"{family} family labels mismatch")
     sources = sorted(df["dataset_source"].astype(str).unique())
-
     if sources != [SOURCE]:
-        raise SystemExit(
-            f"{family} source mismatch. Found: {sources}"
-        )
+        raise SystemExit(f"{family} source mismatch. Found: {sources}")
 
+    if df["sample_id"].isna().any() or df["sample_id"].astype(str).str.strip().eq("").any():
+        raise SystemExit("Sample IDs must be nonmissing")
     ids = df["sample_id"].astype(str)
 
     if ids.duplicated().any():
@@ -95,12 +74,7 @@ def validate_positive(df, family):
 
 
 def to_matrix(df, feature_cols):
-    return (
-        df.reindex(columns=feature_cols, fill_value=0)
-        .apply(pd.to_numeric, errors="coerce")
-        .fillna(0)
-        .to_numpy(dtype=np.float32)
-    )
+    return feature_matrix(df).loc[:, feature_cols]
 
 
 def anomaly_scores(model, X):
@@ -109,21 +83,28 @@ def anomaly_scores(model, X):
 
 
 def detection_rate(scores, threshold):
-    return float(np.mean(scores >= threshold))
+    return float(np.mean(scores > threshold))
 
 
-def main():
+def _main():
+    global ROOT, OUTPUT_DIR, MODEL_ARTIFACT, FIT_BENIGN_ROWS
+    parser = argparse.ArgumentParser(description="Offline benign-only IF calibration; writes a shadow candidate only")
+    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--model-artifact", type=Path, default=MODEL_ARTIFACT)
+    parser.add_argument("--fit-benign-rows", type=int, default=FIT_BENIGN_ROWS)
+    args = parser.parse_args()
+    ROOT, OUTPUT_DIR, MODEL_ARTIFACT, FIT_BENIGN_ROWS = args.root, args.output_dir, args.model_artifact, args.fit_benign_rows
+    if FIT_BENIGN_ROWS < 2:
+        parser.error("fit-benign-rows must be at least 2")
     akira_dir = ROOT / "heldout_CSU_Ransomware_Data_Akira" / "data"
     lockbit_dir = ROOT / "heldout_CSU_Ransomware_Data_LockBit" / "data"
 
-    benign_train = load_csv(akira_dir / "train_benign.csv")
-    benign_test = load_csv(akira_dir / "test_benign.csv")
-
-    lockbit_benign_train = load_csv(lockbit_dir / "train_benign.csv")
-    lockbit_benign_test = load_csv(lockbit_dir / "test_benign.csv")
-
-    akira_test = load_csv(akira_dir / "test_positive.csv")
-    lockbit_test = load_csv(lockbit_dir / "test_positive.csv")
+    akira = load_family_split(akira_dir.parent)
+    lockbit = load_family_split(lockbit_dir.parent)
+    benign_train, benign_test = akira["train_benign"], akira["test_benign"]
+    lockbit_benign_train, lockbit_benign_test = lockbit["train_benign"], lockbit["test_benign"]
+    akira_test, lockbit_test = akira["test_positive"], lockbit["test_positive"]
 
     validate_benign(benign_train, "Akira train benign")
     validate_benign(benign_test, "Akira test benign")
@@ -158,36 +139,28 @@ def main():
     if set(lockbit_test["sample_id"].astype(str)) & akira_test_ids:
         raise SystemExit("LockBit positive/benign overlap detected.")
 
-    feature_cols = [
-        col
-        for col in benign_train.columns
-        if col not in NON_FEATURE_COLS
-        and pd.api.types.is_numeric_dtype(benign_train[col])
-    ]
-
-    if not feature_cols:
-        raise SystemExit("No numeric feature columns found.")
-
-    ranked = benign_train.copy()
-    ranked["_stable_score"] = ranked["sample_id"].astype(str).map(
-        lambda value: stable_score(
-            "if_benign_fit_calibration",
-            value,
-        )
-    )
-
-    ranked = ranked.sort_values(
-        "_stable_score",
-        kind="stable",
-    ).reset_index(drop=True)
-
-    if len(ranked) <= FIT_BENIGN_ROWS:
-        raise SystemExit(
-            "Not enough benign rows for fit/calibration partition."
-        )
-
-    benign_fit = ranked.iloc[:FIT_BENIGN_ROWS].copy()
-    benign_calibration = ranked.iloc[FIT_BENIGN_ROWS:].copy()
+    if not benign_train.sort_values("sample_id").reset_index(drop=True).equals(lockbit_benign_train.sort_values("sample_id").reset_index(drop=True)):
+        raise SystemExit("Benign training observations differ across family splits")
+    if not benign_test.sort_values("sample_id").reset_index(drop=True).equals(lockbit_benign_test.sort_values("sample_id").reset_index(drop=True)):
+        raise SystemExit("Benign test observations differ across family splits")
+    feature_cols = list(feature_matrix(benign_train).columns)
+    # Rank whole groups, never split sessions/files/duplicate observations.
+    groups, _ = related_groups(benign_train.drop(columns="dataset_source"), feature_matrix(benign_train))
+    keys = benign_train.assign(_group=groups).groupby("_group")["sample_id"].min()
+    ranked_groups = sorted(keys.index, key=lambda group: stable_score("if_benign_fit_calibration", keys[group]))
+    fit_groups = set()
+    fit_count = 0
+    for group in ranked_groups[:-1]:
+        if fit_count >= FIT_BENIGN_ROWS:
+            break
+        fit_groups.add(group)
+        fit_count += int((groups == group).sum())
+    if fit_count < FIT_BENIGN_ROWS:
+        raise SystemExit("Not enough independent benign groups for requested fit/calibration partition")
+    benign_fit = benign_train.loc[np.isin(groups, list(fit_groups))].copy()
+    benign_calibration = benign_train.loc[~np.isin(groups, list(fit_groups))].copy()
+    validate_partitions({"fit": benign_fit, "calibration": benign_calibration,
+                         "test": pd.concat([benign_test, akira_test, lockbit_test], ignore_index=True)})
 
     fit_ids = set(benign_fit["sample_id"].astype(str))
     calibration_ids = set(
@@ -224,7 +197,7 @@ def main():
     model.fit(X_fit)
 
     MODEL_ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, MODEL_ARTIFACT)
+
 
     calibration_scores = anomaly_scores(model, X_calibration)
     benign_test_scores = anomaly_scores(model, X_benign_test)
@@ -234,13 +207,8 @@ def main():
     rows = []
 
     for target_fpr in TARGET_FPRS:
-        threshold = float(
-            np.quantile(
-                calibration_scores,
-                1 - target_fpr,
-                method="higher",
-            )
-        )
+        calibration_info = calibrate_benign_threshold(model, X_calibration, target_fpr=target_fpr)
+        threshold = -calibration_info["threshold"]
 
         calibration_fpr = detection_rate(
             calibration_scores,
@@ -288,6 +256,12 @@ def main():
             f"Macro Recall={macro_family_recall * 100:6.3f}%"
         )
 
+    # Store the default 5% calibration as well as the multi-threshold report.
+    calibrate_benign_threshold(model, X_calibration, target_fpr=0.05)
+    joblib.dump({"model": model, "feature_schema_version": 2,
+                 "normalization": "fixed_nonnegative_saturation_v1",
+                 "feature_columns": feature_cols}, MODEL_ARTIFACT)
+
     integrity = {
         "akira_lockbit_benign_train_sets_identical": True,
         "akira_lockbit_benign_test_sets_identical": True,
@@ -298,14 +272,16 @@ def main():
     }
 
     report = {
+        "split_manifests_sha256": {family: hashlib.sha256((ROOT / f"heldout_{SOURCE}_{family}" / "split_manifest.json").read_bytes()).hexdigest() for family in ("Akira", "LockBit")},
+        "feature_schema_version": 2,
+        "normalization": "fixed_nonnegative_saturation_v1",
+        "artifact_sha256": hashlib.sha256(MODEL_ARTIFACT.read_bytes()).hexdigest(),
+        "threshold_comparison": "anomaly_score > threshold_anomaly_score",
+        "partition_scope": "within_source_heldout_family",
         "protocol": (
-            "Isolation Forest was trained only on benign behavior. "
-            "The original 100,000 benign training rows were "
-            "deterministically split into 80,000 model-fit rows and "
-            "20,000 calibration rows. Thresholds were selected from "
-            "calibration-benign anomaly scores and evaluated on an "
-            "independent 20,000 benign test set plus held-out Akira "
-            "and LockBit ransomware-family test sets."
+            "Isolation Forest fits benign observations only. Whole related groups form fit/calibration/test partitions. "
+            "Thresholds use the shared lower-tail benign calibration; equality is an inlier. "
+            "This selected, within-source experiment is not a cross-source deployment estimate."
         ),
         "model": {
             "name": "IsolationForest",
@@ -369,6 +345,13 @@ def main():
     print(f"JSON report: {json_path}")
     print(f"CSV report:  {csv_path}")
     print(f"Model artifact: {MODEL_ARTIFACT}")
+
+
+def main():
+    try:
+        _main()
+    except (OSError, ValueError, KeyError) as exc:
+        raise SystemExit(f"Benign calibration failed: {exc}") from exc
 
 
 if __name__ == "__main__":

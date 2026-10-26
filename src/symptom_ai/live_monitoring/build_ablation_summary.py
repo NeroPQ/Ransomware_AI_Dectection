@@ -24,9 +24,9 @@ CASES = [
 
 METHOD_FIELDS = {
     "rule_only": "rule_only_detected",
-    "xgboost_only": "xgboost_only_detected",
-    "xgboost_plus_isolation_forest": (
-        "xgboost_plus_isolation_forest_detected"
+    "classifier_only": "classifier_only_detected",
+    "classifier_plus_isolation_forest": (
+        "classifier_plus_isolation_forest_detected"
     ),
     "full_hybrid": "full_hybrid_detected",
 }
@@ -60,6 +60,10 @@ def main():
             "result": result,
         })
 
+    schema_versions = {case["result"].get("alert_schema_version", 1) for case in loaded_cases}
+    if len(schema_versions) != 1:
+        raise SystemExit("Cannot aggregate different alert schema versions")
+
     method_rows = []
 
     for method_name, field_name in METHOD_FIELDS.items():
@@ -80,8 +84,14 @@ def main():
             result = case["result"]
 
             windows = result.get("windows", [])
+            # Historical schema-1 reports used XGBoost-specific keys.
+            result_method = method_name
+            result_field = field_name
+            if result.get("alert_schema_version", 1) == 1:
+                result_method = method_name.replace("classifier", "xgboost")
+                result_field = field_name.replace("classifier", "xgboost")
             detections = [
-                bool(window.get(field_name))
+                bool(window.get(result_field))
                 for window in windows
             ]
 
@@ -90,7 +100,7 @@ def main():
 
             method_summary = (
                 result.get("method_summaries", {})
-                .get(method_name, {})
+                .get(result_method, {})
             )
 
             lead_time = method_summary.get(
@@ -188,6 +198,7 @@ def main():
         })
 
     result = {
+        "alert_schema_version": next(iter(schema_versions)),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "evaluation_scope": (
             "Safe simulated scenario ablation only. "

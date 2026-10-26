@@ -59,8 +59,8 @@ def main():
     lines.append("## 2. AI Model Status")
     lines.append("")
     if meta:
-        lines.append(f"- Classifier: **{meta.get('classifier')}**")
-        lines.append(f"- Unknown detector: **{meta.get('unknown_detector')}**")
+        lines.append(f"- Classifier: **{meta.get('primary_classifier')}**")
+        lines.append(f"- Unknown detector: **{meta.get('models', {}).get('unknown_detector')}**")
         lines.append(f"- Training rows: **{meta.get('training_rows'):,}**")
         lines.append(f"- Feature count: **{meta.get('feature_count')}**")
         lines.append(f"- Labels: `{', '.join(meta.get('labels', []))}`")
@@ -71,18 +71,15 @@ def main():
     if report:
         lines.append("## 3. Training Result")
         lines.append("")
-        acc = report.get("accuracy")
-        if acc is not None:
-            lines.append(f"- Accuracy: **{acc:.4f}**")
+        lines.append("Held-out test results (selection uses validation macro F1):")
         lines.append("")
-        if "confusion_matrix" in report:
-            lines.append("### Confusion Matrix")
-            labels = report.get("confusion_matrix_labels", [])
-            cm = report.get("confusion_matrix", [])
-            lines.append("")
-            lines.append(f"- Labels: `{labels}`")
-            lines.append(f"- Matrix: `{cm}`")
-            lines.append("")
+        for name in ("random_forest", "xgboost"):
+            result = report.get(name, {})
+            lines.append(f"- {name}: macro F1={result.get('f1')}; benign false-positive rate={result.get('false_positive_rate')}")
+            lines.append(f"  Confusion matrix ({result.get('confusion_matrix_labels')}): {result.get('confusion_matrix')}")
+        lines.append("")
+        lines.append("These results depend on source labels and provenance. Anomalies do not prove zero-day detection.")
+        lines.append("")
     else:
         lines.append("## 3. Training Result")
         lines.append("")
@@ -118,6 +115,7 @@ def main():
     lines.append("```bash")
     lines.append("""curl -X POST http://localhost:8000/respond \\
   -H "Content-Type: application/json" \\
+  -H "X-API-Key: $SYMPTOM_AI_API_KEY" \\
   -d '{
     "symptoms": {
       "file_write_burst": 0.82,
@@ -139,8 +137,8 @@ def main():
         "Each row represents one behavior sample with standardized symptoms such as file write burst, "
         "high entropy write, registry modification, API usage, C2 beaconing, backup tampering, and storage activity. "
         "The Random Forest classifier predicts whether the behavior is benign or ransomware-like, while Isolation Forest "
-        "supports anomaly and unknown-risk detection. The response engine converts AI output into defensive actions such as "
-        "monitoring, isolation, emergency backup, and demo protective lockdown."
+        "supports anomaly scoring. The response engine recommends actions and records a safe simulation; "
+        "it does not execute host isolation, process termination, or file permission changes."
     )
     lines.append("")
 

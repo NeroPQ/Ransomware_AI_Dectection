@@ -72,7 +72,7 @@ first_learned_detection = first_where(
 items = [
     ("1. First detection / first non-monitor alert", first_detection),
     ("2. First file impact observed", first_file_impact),
-    ("3. First containment decision", first_containment),
+    ("3. First containment recommendation", first_containment),
     ("4. First STOP_SIGNAL generated", first_stop),
     ("5. First learning case/signature saved", first_learning),
     ("6. First learned-signature detection", first_learned_detection),
@@ -99,7 +99,7 @@ for a in alerts:
     if b["file_impact"]:
         marker.append("FILE_IMPACT")
     if b["policy"] in {"protective_lockdown", "isolate_and_backup"}:
-        marker.append("CONTAIN")
+        marker.append("CONTAINMENT_RECOMMENDED")
     if b["stop_signal"]:
         marker.append("STOP")
     if b["learning_case"] or b["learned_signature"]:

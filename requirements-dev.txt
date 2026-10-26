@@ -1,0 +1,2 @@
+# FastAPI's TestClient requires httpx; unittest is provided by Python.
+httpx>=0.28,<1

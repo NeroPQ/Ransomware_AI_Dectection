@@ -2,6 +2,7 @@ from pathlib import Path
 import zipfile
 import pandas as pd
 import numpy as np
+from symptom_ai.dataset_ingestion.validation import norm01, text_label, binary_labels, combine_frames
 
 
 OUT_DIR = Path("data/symptom_labels")
@@ -88,26 +89,17 @@ SYMPTOMS = [
 FINAL_COLS = META_COLS + SYMPTOMS + ["label", "response_policy"]
 
 
-def norm01(s):
-    s = pd.to_numeric(s, errors="coerce").fillna(0)
-    minv, maxv = s.min(), s.max()
-    if maxv == minv:
-        return (s > 0).astype(float)
-    return ((s - minv) / (maxv - minv)).clip(0, 1)
-
 
 def empty_frame(n):
-    df = pd.DataFrame(index=range(n))
-    for c in SYMPTOMS:
-        df[c] = 0.0
-    return df
+    return pd.DataFrame(0.0, index=range(n), columns=SYMPTOMS)
 
 
 def finalize(df):
     for c in FINAL_COLS:
         if c not in df.columns:
             df[c] = 0.0 if c in SYMPTOMS else "unknown"
-    return df[FINAL_COLS]
+    provenance = [c for c in ("session_id", "source_file") if c in df]
+    return df[FINAL_COLS + provenance]
 
 
 def save_part(df, name):
@@ -123,16 +115,10 @@ def label_to_policy(label):
         return "monitor_only"
     if label == "unknown_high_risk":
         return "protective_lockdown"
-    return "isolate_and_backup"
+    return "isolate_and_backup" if label == "known_ransomware_like" else "analyst_review"
 
 
-def detect_label_from_text(text):
-    t = str(text).lower()
-    if any(x in t for x in ["benign", "goodware", "normal", "clean"]):
-        return "benign"
-    if any(x in t for x in ["ransom", "wannacry", "ryuk", "lockbit", "conti", "darkside", "cerber", "sodinokibi", "teslacrypt", "gandcrab"]):
-        return "known_ransomware_like"
-    return "known_ransomware_like"
+detect_label_from_text = text_label
 
 
 def ingest_mlran():
@@ -172,9 +158,9 @@ def ingest_mlran():
 
         if "sample_type" in raw.columns:
             st = raw["sample_type"].astype(str).str.lower()
-            out["label"] = np.where(st.str.contains("good|benign|normal|0"), "benign", "known_ransomware_like")
+            out["label"] = st.apply(text_label)
         else:
-            out["label"] = "known_ransomware_like"
+            out["label"] = "unknown"
 
         out["response_policy"] = out["label"].apply(label_to_policy)
         frames.append(out)
@@ -234,42 +220,18 @@ def ingest_windows_pe_api_calls():
         out["family"] = y
         out["label"] = y.apply(detect_label_from_text)
     else:
-        out["label"] = "known_ransomware_like"
+        out["label"] = "unknown"
 
     out["response_policy"] = out["label"].apply(label_to_policy)
     return save_part(out, "windows_pe_api_calls")
 
 
 def ingest_riss():
-    ids = Path("data/raw/riss_cuckoo/IDS.txt")
-    if not ids.exists():
-        print("[!] RISS IDS missing")
-        return None
-
-    raw = pd.read_csv(ids, sep=";", engine="python")
-    n = len(raw)
-    out = empty_frame(n)
-
-    out["sample_id"] = raw.get("ID", pd.Series([f"riss_{i}" for i in range(n)])).astype(str)
-    out["dataset_source"] = "RISS_Cuckoo_Ransomware"
-    out["family"] = raw.get("Ransomware_Family", "unknown").astype(str)
-    out["behavior_type"] = "cuckoo_dynamic_metadata"
-    out["collection_type"] = "cuckoo_report_metadata"
-    out["platform"] = "windows"
-    out["is_simulated"] = 0
-    out["is_real_malware_executed"] = 0
-
-    ransomware = pd.to_numeric(raw.get("Ransomware", 1), errors="coerce").fillna(1)
-    out["label"] = np.where(ransomware == 0, "benign", "known_ransomware_like")
-    out["process_api_usage"] = ransomware.astype(float) * 0.5
-    out["file_api_usage"] = ransomware.astype(float) * 0.5
-    out["suspicious_process_spawn"] = ransomware.astype(float) * 0.4
-    out["response_policy"] = out["label"].apply(label_to_policy)
-
-    return save_part(out, "riss_cuckoo")
+    print("[!] RISS adapter disabled: original features were derived from target labels; implement a verified observation mapping before use")
+    return None
 
 
-def generic_csv_ingest(dataset_name, root_path, source_label="known_ransomware_like"):
+def generic_csv_ingest(dataset_name, root_path, source_label="unknown"):
     root = Path(root_path)
     csvs = sorted(root.rglob("*.csv"))
     frames = []
@@ -277,7 +239,8 @@ def generic_csv_ingest(dataset_name, root_path, source_label="known_ransomware_l
     for p in csvs[:20]:
         try:
             raw = pd.read_csv(p)
-        except Exception:
+        except (OSError, ValueError, pd.errors.ParserError) as exc:
+            print(f"[!] Cannot read {p}: {type(exc).__name__}")
             continue
 
         if len(raw) == 0:
@@ -294,7 +257,7 @@ def generic_csv_ingest(dataset_name, root_path, source_label="known_ransomware_l
         out["is_simulated"] = 0
         out["is_real_malware_executed"] = 0
 
-        lower_cols = {c.lower(): c for c in raw.columns}
+        lower_cols = {c.lower(): c for c in raw.columns if c.lower() not in {"label", "class", "target", "target-class", "target-class-name", "category", "family", "prediction", "threats"}}
 
         def col_contains(keys):
             cols = [orig for low, orig in lower_cols.items() if any(k in low for k in keys)]
@@ -328,7 +291,7 @@ def generic_csv_ingest(dataset_name, root_path, source_label="known_ransomware_l
         if label_col:
             out["label"] = raw[label_col].apply(detect_label_from_text)
         else:
-            out["label"] = source_label
+            out["label"] = "unknown"  # Source name is not ground truth
 
         out["response_policy"] = out["label"].apply(label_to_policy)
         frames.append(out)
@@ -371,7 +334,7 @@ def ingest_storage_trace_dataset(name, root_path):
         rel = str(run.relative_to(root))
         app = run.parts[-2] if len(run.parts) >= 2 else rel
         text = rel.lower()
-        label = "benign" if any(w in text for w in benign_words) else "known_ransomware_like"
+        label = text_label(text)  # Unrecognized run names require review
 
         read_file = next((run / f for f in ["ata_read.csv", "ata_read.zip"] if (run / f).exists()), None)
         write_file = next((run / f for f in ["ata_write.csv", "ata_write.zip"] if (run / f).exists()), None)
@@ -433,16 +396,7 @@ def build_unified(parts):
     if not frames:
         raise SystemExit("[!] No datasets to unify")
 
-    all_cols = sorted(set().union(*[set(df.columns) for df in frames]))
-    aligned = []
-
-    for df in frames:
-        for c in all_cols:
-            if c not in df.columns:
-                df[c] = 0.0
-        aligned.append(df[all_cols])
-
-    final = pd.concat(aligned, ignore_index=True)
+    final = combine_frames(frames)
     final.to_csv(UNIFIED_OUT, index=False)
 
     print("\n[+] Unified saved:", UNIFIED_OUT)
@@ -468,11 +422,24 @@ def main():
     parts.append(ingest_storage_trace_dataset("RanSAP", "data/raw/ransap"))
     parts.append(ingest_storage_trace_dataset("RanSMAP", "data/raw/ransmap"))
 
-    build_unified(parts)
+    try:
+        build_unified(parts)
+    except ValueError as exc:
+        raise SystemExit(f"Dataset validation failed: {exc}") from exc
 
 
-if __name__ == "__main__":
-    main()
+
+
+# ===== Additional parsers added after dataset inspection =====
+
+
+
+
+
+
+
+
+
 
 
 # ===== Additional parsers added after dataset inspection =====
@@ -550,7 +517,7 @@ def ingest_silrad():
         if "class" in raw.columns:
             out["label"] = raw["class"].apply(detect_label_from_text)
         else:
-            out["label"] = "known_ransomware_like"
+            out["label"] = "unknown"
 
         out["response_policy"] = out["label"].apply(label_to_policy)
         frames.append(out)
@@ -585,15 +552,15 @@ def ingest_kaggle_ransomware_pe():
     out["high_section_entropy"] = norm01(raw.get("ResourceSize", 0))
     out["suspicious_import_table"] = norm01(raw.get("IatVRA", 0))
     out["suspicious_section_name"] = norm01(raw.get("ExportSize", 0))
-    out["low_import_count_packed"] = 1 - norm01(raw.get("IatVRA", 0))
+    out["low_import_count_packed"] = 1 - norm01(raw["IatVRA"]) if "IatVRA" in raw else 0.0
     out["suspicious_string"] = norm01(raw.get("BitcoinAddresses", 0))
     out["ransomware_keyword_string"] = norm01(raw.get("BitcoinAddresses", 0))
 
     if "Benign" in raw.columns:
-        benign = pd.to_numeric(raw["Benign"], errors="coerce").fillna(0)
-        out["label"] = np.where(benign == 1, "benign", "known_ransomware_like")
+        benign = pd.to_numeric(raw["Benign"], errors="coerce")
+        out["label"] = binary_labels(benign, one_is_benign=True)
     else:
-        out["label"] = "known_ransomware_like"
+        out["label"] = "unknown"
 
     out["response_policy"] = out["label"].apply(label_to_policy)
     return save_part(out, "kaggle_ransomware_pe")
@@ -632,7 +599,7 @@ def ingest_api_call_sequences():
     out["anti_analysis"] = seq.str.contains("debug|querysystem|sandbox|vm", regex=True).astype(float)
 
     # This dataset is malware-only in current project usage.
-    out["label"] = "known_ransomware_like"
+    out["label"] = "unknown"
     out["response_policy"] = "isolate_and_backup"
 
     return save_part(out, "api_call_sequences")
@@ -660,16 +627,15 @@ def ingest_ugransome2024():
     out["c2_beaconing"] = norm01(raw.get("Netflow_Bytes", 0))
     out["high_outbound_bytes"] = norm01(raw.get("Netflow_Bytes", 0))
     out["data_exfiltration_pattern"] = norm01(raw.get("Netflow_Bytes", 0))
-    out["suspicious_ip_reputation"] = norm01(raw.get("Threats", 0))
+    out["suspicious_ip_reputation"] = 0.0  # Threats is potentially a post-detection label
     out["suspicious_dns"] = raw.get("Protcol", "").astype(str).str.lower().str.contains("dns").astype(float) if "Protcol" in raw.columns else 0.0
     out["tor_or_proxy_usage"] = raw.get("Port", "").astype(str).str.contains("9050|9150|1080").astype(float) if "Port" in raw.columns else 0.0
 
-    if "Prediction" in raw.columns:
-        out["label"] = raw["Prediction"].apply(detect_label_from_text)
-    elif "Family" in raw.columns:
+    # Prediction may be an upstream model output, not verified ground truth.
+    if "Family" in raw.columns:
         out["label"] = raw["Family"].apply(detect_label_from_text)
     else:
-        out["label"] = "known_ransomware_like"
+        out["label"] = "unknown"
 
     out["response_policy"] = out["label"].apply(label_to_policy)
     return save_part(out, "ugransome2024")
@@ -719,257 +685,7 @@ def ingest_android_ransomware_detection(max_rows=80000):
         out["label"] = raw[label_col].apply(detect_label_from_text)
     else:
         # This is optional cross-platform ransomware data; mark ransomware-like conservatively.
-        out["label"] = "known_ransomware_like"
-
-    out["response_policy"] = out["label"].apply(label_to_policy)
-    return save_part(out, "android_ransomware_detection")
-
-
-# ===== Additional parsers added after dataset inspection =====
-
-def ingest_silrad():
-    root = Path("data/raw/silrad/extracted")
-    csvs = [
-        root / "fasttext-trainmodel.csv",
-        root / "fasttext-testmodel.csv",
-        root / "fasttext-all-nofamily.csv",
-    ]
-
-    frames = []
-    for p in csvs:
-        if not p.exists():
-            continue
-
-        raw = pd.read_csv(p)
-        n = len(raw)
-        out = empty_frame(n)
-
-        out["sample_id"] = [f"silrad_{p.stem}_{i}" for i in range(n)]
-        out["dataset_source"] = "SILRAD"
-        out["family"] = raw.get("class", "unknown").astype(str) if "class" in raw.columns else "unknown"
-        out["behavior_type"] = "sysmon_ransomware_logs"
-        out["collection_type"] = "sysmon_csv"
-        out["platform"] = "windows"
-        out["is_simulated"] = 0
-        out["is_real_malware_executed"] = 0
-
-        text_cols = [
-            "CommandLine", "ParentCommandLine", "Image", "ParentImage",
-            "TargetObject", "RuleName", "Details", "Description", "task"
-        ]
-
-        text = pd.Series([""] * n)
-        for col in text_cols:
-            if col in raw.columns:
-                text = text + " " + raw[col].astype(str).str.lower()
-
-        out["command_shell_execution"] = text.str.contains("cmd.exe|powershell|pwsh", regex=True).astype(float)
-        out["powershell_execution"] = text.str.contains("powershell|pwsh", regex=True).astype(float)
-        out["wscript_cscript_execution"] = text.str.contains("wscript|cscript", regex=True).astype(float)
-        out["living_off_the_land_binary_usage"] = text.str.contains("vssadmin|wmic|bcdedit|schtasks|reg.exe|rundll32|mshta|certutil", regex=True).astype(float)
-
-        out["vssadmin_usage"] = text.str.contains("vssadmin", regex=False).astype(float)
-        out["wmic_shadowcopy_usage"] = text.str.contains("shadowcopy|wmic", regex=True).astype(float)
-        out["shadow_copy_delete_attempt"] = text.str.contains("shadowcopy delete|delete shadows|vssadmin delete", regex=True).astype(float)
-        out["bcdedit_recovery_disabled"] = text.str.contains("bcdedit|recoveryenabled no", regex=True).astype(float)
-        out["backup_disable_attempt"] = text.str.contains("backup|wbadmin|recovery", regex=True).astype(float)
-
-        out["registry_run_key_modified"] = text.str.contains("runonce|currentversion\\\\run|registry|regset|reg.exe", regex=True).astype(float)
-        out["registry_startup_modified"] = out["registry_run_key_modified"]
-        out["persistence_attempt"] = text.str.contains("runonce|startup|schtasks|service|autorun", regex=True).astype(float)
-        out["scheduled_task_created"] = text.str.contains("schtasks|scheduled task", regex=True).astype(float)
-        out["service_created"] = text.str.contains("createservice|service created|sc.exe", regex=True).astype(float)
-
-        out["security_tool_tamper"] = text.str.contains("defender|windows defender|security|antivirus|edr|disableantispyware", regex=True).astype(float)
-        out["event_log_clear_attempt"] = text.str.contains("wevtutil|clear-log|eventlog", regex=True).astype(float)
-
-        out["file_write_burst"] = text.str.contains("filecreate|createfile|writefile", regex=True).astype(float)
-        out["file_delete_burst"] = text.str.contains("filedelete|deletefile", regex=True).astype(float)
-        out["file_read_burst"] = text.str.contains("fileread|readfile", regex=True).astype(float)
-        out["suspicious_extension_change"] = text.str.contains(".locked|.encrypted|.crypt|.ryk|.wannacry|.lockbit", regex=True).astype(float)
-        out["ransom_note_created"] = text.str.contains("readme|decrypt|ransom|restore files", regex=True).astype(float)
-
-        out["suspicious_process_spawn"] = text.str.contains("processcreate|process created|cmd.exe|powershell|rundll32", regex=True).astype(float)
-        out["process_from_temp_directory"] = text.str.contains("\\\\temp\\\\|/temp/|appdata", regex=True).astype(float)
-        out["process_from_appdata"] = text.str.contains("appdata", regex=False).astype(float)
-
-        out["c2_beaconing"] = text.str.contains("network|dns|http|https|tcp|connection", regex=True).astype(float)
-        out["suspicious_dns"] = text.str.contains("dns", regex=False).astype(float)
-        out["data_exfiltration_pattern"] = text.str.contains("upload|post|http|network", regex=True).astype(float)
-
-        if "class" in raw.columns:
-            out["label"] = raw["class"].apply(detect_label_from_text)
-        else:
-            out["label"] = "known_ransomware_like"
-
-        out["response_policy"] = out["label"].apply(label_to_policy)
-        frames.append(out)
-
-    if not frames:
-        print("[!] SILRAD no usable CSV")
-        return None
-
-    return save_part(pd.concat(frames, ignore_index=True), "silrad")
-
-
-def ingest_kaggle_ransomware_pe():
-    p = Path("data/raw/kaggle_ransomware_pe/data_file.csv")
-    if not p.exists():
-        print("[!] Kaggle_Ransomware_PE missing")
-        return None
-
-    raw = pd.read_csv(p)
-    n = len(raw)
-    out = empty_frame(n)
-
-    out["sample_id"] = raw.get("md5Hash", pd.Series([f"kaggle_pe_{i}" for i in range(n)])).astype(str)
-    out["dataset_source"] = "Kaggle_Ransomware_PE"
-    out["family"] = "static_pe"
-    out["behavior_type"] = "static_pe_features"
-    out["collection_type"] = "pe_metadata"
-    out["platform"] = "windows"
-    out["is_simulated"] = 0
-    out["is_real_malware_executed"] = 0
-
-    out["packed_binary"] = norm01(raw.get("NumberOfSections", 0))
-    out["high_section_entropy"] = norm01(raw.get("ResourceSize", 0))
-    out["suspicious_import_table"] = norm01(raw.get("IatVRA", 0))
-    out["suspicious_section_name"] = norm01(raw.get("ExportSize", 0))
-    out["low_import_count_packed"] = 1 - norm01(raw.get("IatVRA", 0))
-    out["suspicious_string"] = norm01(raw.get("BitcoinAddresses", 0))
-    out["ransomware_keyword_string"] = norm01(raw.get("BitcoinAddresses", 0))
-
-    if "Benign" in raw.columns:
-        benign = pd.to_numeric(raw["Benign"], errors="coerce").fillna(0)
-        out["label"] = np.where(benign == 1, "benign", "known_ransomware_like")
-    else:
-        out["label"] = "known_ransomware_like"
-
-    out["response_policy"] = out["label"].apply(label_to_policy)
-    return save_part(out, "kaggle_ransomware_pe")
-
-
-def ingest_api_call_sequences():
-    p = Path("data/raw/api_call_sequences/dynamic_api_call_sequence_per_malware_100_0_306.csv")
-    if not p.exists():
-        print("[!] API_Call_Sequences missing")
-        return None
-
-    raw = pd.read_csv(p)
-    n = len(raw)
-    out = empty_frame(n)
-
-    out["sample_id"] = raw.get("hash", pd.Series([f"api_seq_{i}" for i in range(n)])).astype(str)
-    out["dataset_source"] = "API_Call_Sequences"
-    out["family"] = "malware_api_sequence"
-    out["behavior_type"] = "dynamic_api_call_sequence"
-    out["collection_type"] = "api_sequence"
-    out["platform"] = "windows"
-    out["is_simulated"] = 0
-    out["is_real_malware_executed"] = 0
-
-    token_cols = [c for c in raw.columns if c.startswith("t_")]
-    seq = raw[token_cols].astype(str).agg(" ".join, axis=1).str.lower()
-
-    out["file_api_usage"] = seq.str.contains("file|write|read|create", regex=True).astype(float)
-    out["file_write_burst"] = seq.str.contains("write|createfile|ntwrite", regex=True).astype(float)
-    out["file_read_burst"] = seq.str.contains("read|openfile|ntread", regex=True).astype(float)
-    out["registry_api_usage"] = seq.str.contains("reg|registry|ntopenkey", regex=True).astype(float)
-    out["process_api_usage"] = seq.str.contains("process|createprocess|shell", regex=True).astype(float)
-    out["memory_access_spike"] = seq.str.contains("virtualmemory|mapview|section|alloc", regex=True).astype(float)
-    out["network_api_usage"] = seq.str.contains("internet|connect|send|recv|http", regex=True).astype(float)
-    out["c2_beaconing"] = out["network_api_usage"]
-    out["anti_analysis"] = seq.str.contains("debug|querysystem|sandbox|vm", regex=True).astype(float)
-
-    # This dataset is malware-only in current project usage.
-    out["label"] = "known_ransomware_like"
-    out["response_policy"] = "isolate_and_backup"
-
-    return save_part(out, "api_call_sequences")
-
-
-def ingest_ugransome2024():
-    p = Path("data/raw/ugransome2024/final(2).csv")
-    if not p.exists():
-        print("[!] UGRansome2024 missing")
-        return None
-
-    raw = pd.read_csv(p)
-    n = len(raw)
-    out = empty_frame(n)
-
-    out["sample_id"] = [f"ugransome_{i}" for i in range(n)]
-    out["dataset_source"] = "UGRansome2024"
-    out["family"] = raw.get("Family", "unknown").astype(str) if "Family" in raw.columns else "unknown"
-    out["behavior_type"] = "network_ransomware_features"
-    out["collection_type"] = "network_features"
-    out["platform"] = "network"
-    out["is_simulated"] = 0
-    out["is_real_malware_executed"] = 0
-
-    out["c2_beaconing"] = norm01(raw.get("Netflow_Bytes", 0))
-    out["high_outbound_bytes"] = norm01(raw.get("Netflow_Bytes", 0))
-    out["data_exfiltration_pattern"] = norm01(raw.get("Netflow_Bytes", 0))
-    out["suspicious_ip_reputation"] = norm01(raw.get("Threats", 0))
-    out["suspicious_dns"] = raw.get("Protcol", "").astype(str).str.lower().str.contains("dns").astype(float) if "Protcol" in raw.columns else 0.0
-    out["tor_or_proxy_usage"] = raw.get("Port", "").astype(str).str.contains("9050|9150|1080").astype(float) if "Port" in raw.columns else 0.0
-
-    if "Prediction" in raw.columns:
-        out["label"] = raw["Prediction"].apply(detect_label_from_text)
-    elif "Family" in raw.columns:
-        out["label"] = raw["Family"].apply(detect_label_from_text)
-    else:
-        out["label"] = "known_ransomware_like"
-
-    out["response_policy"] = out["label"].apply(label_to_policy)
-    return save_part(out, "ugransome2024")
-
-
-def ingest_android_ransomware_detection(max_rows=80000):
-    p = Path("data/raw/android_ransomware/Android_Ransomeware.csv")
-    if not p.exists():
-        print("[!] Android_Ransomware_Detection missing")
-        return None
-
-    raw = pd.read_csv(p)
-    if len(raw) > max_rows:
-        raw = raw.sample(n=max_rows, random_state=42).reset_index(drop=True)
-
-    n = len(raw)
-    out = empty_frame(n)
-
-    out["sample_id"] = [f"android_ransomware_{i}" for i in range(n)]
-    out["dataset_source"] = "Android_Ransomware_Detection"
-    out["family"] = "android_ransomware"
-    out["behavior_type"] = "android_network_flow_features"
-    out["collection_type"] = "network_flow"
-    out["platform"] = "android"
-    out["is_simulated"] = 0
-    out["is_real_malware_executed"] = 0
-
-    def getcol(name):
-        for c in raw.columns:
-            if c.strip().lower() == name.strip().lower():
-                return raw[c]
-        return pd.Series([0] * n)
-
-    out["c2_beaconing"] = norm01(getcol("Flow Packets/s"))
-    out["high_outbound_bytes"] = norm01(getcol("Total Length of Fwd Packets"))
-    out["data_exfiltration_pattern"] = norm01(getcol("Total Length of Fwd Packets"))
-    out["high_outbound_connection_count"] = norm01(getcol("Total Fwd Packets"))
-    out["suspicious_ip_reputation"] = norm01(getcol("Destination Port"))
-
-    label_col = None
-    for c in raw.columns:
-        if c.strip().lower() in ["label", "class", "category", "type"]:
-            label_col = c
-            break
-
-    if label_col:
-        out["label"] = raw[label_col].apply(detect_label_from_text)
-    else:
-        # This is optional cross-platform ransomware data; mark ransomware-like conservatively.
-        out["label"] = "known_ransomware_like"
+        out["label"] = "unknown"
 
     out["response_policy"] = out["label"].apply(label_to_policy)
     return save_part(out, "android_ransomware_detection")
@@ -1067,7 +783,7 @@ def ingest_cic_malmem2022(max_rows=120000):
             out["family"] = raw[label_col].astype(str)
         else:
             # CIC-MalMem is malware/benign memory dump dataset; if no label col, mark review.
-            out["label"] = "known_ransomware_like"
+            out["label"] = "unknown"
 
         out["response_policy"] = out["label"].apply(label_to_policy)
         frames.append(out)
@@ -1090,7 +806,7 @@ def ingest_bodmas_npz(max_rows=120000):
 
     import numpy as np
 
-    data = np.load(npz_path, allow_pickle=True)
+    data = np.load(npz_path, allow_pickle=False)
     keys = list(data.files)
     print(f"[+] BODMAS npz keys: {keys}")
 
@@ -1164,15 +880,10 @@ def ingest_bodmas_npz(max_rows=120000):
 
     if y is not None:
         ys = pd.Series(y).astype(str).str.lower()
-        # Common BODMAS convention: 0 benign, 1 malware.
-        out["label"] = np.where(
-            ys.isin(["0", "benign", "goodware", "clean"]),
-            "benign",
-            "known_ransomware_like"
-        )
+        # Binary malware labels do not establish ransomware ground truth.
+        out["label"] = np.where(ys.isin(["0", "benign", "goodware", "clean"]), "benign", "unknown")
     else:
-        # BODMAS is malware dataset if label unavailable, so keep conservative.
-        out["label"] = "known_ransomware_like"
+        out["label"] = "unknown"
 
     # Optional metadata enrichment if row count aligns.
     if meta_path.exists():
@@ -1192,3 +903,7 @@ def ingest_bodmas_npz(max_rows=120000):
     out["response_policy"] = out["label"].apply(label_to_policy)
 
     return save_part(out, "bodmas")
+
+
+if __name__ == "__main__":
+    main()

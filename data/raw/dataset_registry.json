@@ -156,7 +156,7 @@
         "unknown_learning"
       ],
       "safety": "sysmon_logs_or_csv_features_only",
-      "status": "imported"
+      "status": "external_dataset_required"
     },
     {
       "name": "Ransomware_Dataset_2024",
@@ -169,7 +169,7 @@
         "behavior"
       ],
       "safety": "csv_features_only",
-      "status": "imported"
+      "status": "external_dataset_required"
     },
     {
       "name": "Android_Ransomware_Detection",

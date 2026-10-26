@@ -1,244 +1,93 @@
+"""Train existing models using independent train, validation and test partitions."""
 from pathlib import Path
+import argparse
+import hashlib
 import json
+
 import joblib
 import pandas as pd
-import numpy as np
-
-from sklearn.ensemble import RandomForestClassifier, IsolationForest
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-
+from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 
+from symptom_ai.dataset_ingestion.validation import validate_labels
+from symptom_ai.models.evaluation import feature_matrix, split_dataset, metrics, fit_benign_detector
 
 DATASET = Path("data/symptom_labels/unified_symptom_dataset.csv")
 MODEL_DIR = Path("models")
 REPORT_DIR = Path("reports/symptom_ai")
 
-MODEL_DIR.mkdir(parents=True, exist_ok=True)
-REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
-NON_FEATURE_COLS = {
-    "sample_id",
-    "dataset_source",
-    "family",
-    "behavior_type",
-    "collection_type",
-    "platform",
-    "is_simulated",
-    "is_real_malware_executed",
-    "label",
-    "response_policy",
-}
+def train_models(df, *, behavior=False, allow_row_split=False):
+    validate_labels(df)
+    from symptom_ai.models.evaluation import BEHAVIOR_FEATURES
+    X = feature_matrix(df, BEHAVIOR_FEATURES, normalized=False) if behavior else feature_matrix(df)
+    train, validation, test, split_info = split_dataset(df, X, allow_row_split=allow_row_split)
+    y = df["label"]
+    labels = sorted(y.unique())
+    label_to_id = {label: i for i, label in enumerate(labels)}
+    rf = RandomForestClassifier(n_estimators=150, max_depth=22, random_state=42,
+                                n_jobs=-1, class_weight="balanced")
+    xgb = XGBClassifier(n_estimators=250, max_depth=7, learning_rate=0.08,
+                        subsample=0.85, colsample_bytree=0.85,
+                        objective="binary:logistic", eval_metric="logloss",
+                        tree_method="hist", random_state=42, n_jobs=-1)
+    rf.fit(X.iloc[train], y.iloc[train])
+    xgb.fit(X.iloc[train], y.iloc[train].map(label_to_id))
 
-MAX_TRAIN_ROWS = 300000
-MAX_ISOLATION_ROWS = 100000
+    def predictions(model, indices):
+        prediction = model.predict(X.iloc[indices])
+        return [labels[int(p)] for p in prediction] if model is xgb else prediction
 
-
-def balanced_sample(df: pd.DataFrame, max_rows: int) -> pd.DataFrame:
-    if len(df) <= max_rows:
-        return df
-
-    labels = sorted(df["label"].unique())
-    per_label = max_rows // len(labels)
-
-    sampled = []
-    for label in labels:
-        part = df[df["label"] == label]
-        n = min(len(part), per_label)
-        sampled.append(part.sample(n=n, random_state=42))
-
-    result = pd.concat(sampled, ignore_index=True)
-    return result.sample(frac=1, random_state=42).reset_index(drop=True)
-
-
-def evaluate_model(name, model, X_test, y_test, labels):
-    y_pred = model.predict(X_test)
-
-    acc = accuracy_score(y_test, y_pred)
-    report_text = classification_report(y_test, y_pred)
-    report_dict = classification_report(y_test, y_pred, output_dict=True)
-    cm = confusion_matrix(y_test, y_pred, labels=labels)
-
-    print(f"\n===== {name} =====")
-    print(f"[+] Accuracy: {acc:.4f}")
-    print(report_text)
-
-    return {
-        "accuracy": float(acc),
-        "classification_report": report_dict,
-        "confusion_matrix_labels": labels,
-        "confusion_matrix": cm.tolist(),
-    }
+    validation_results = {name: metrics(y.iloc[validation], predictions(model, validation), labels)
+                          for name, model in (("random_forest", rf), ("xgboost", xgb))}
+    # Select only on validation macro F1. The test set is used once for reporting.
+    primary = max(validation_results, key=lambda name: validation_results[name]["f1"])
+    iso, iso_info = fit_benign_detector(X.iloc[train], y.iloc[train], X.iloc[validation], y.iloc[validation])
+    test_results = {name: metrics(y.iloc[test], predictions(model, test), labels)
+                    for name, model in (("random_forest", rf), ("xgboost", xgb))}
+    iso_predictions = ["known_ransomware_like" if p == -1 else "benign" for p in iso.predict(X.iloc[test])]
+    iso_info["test_metrics"] = metrics(y.iloc[test], iso_predictions, labels)
+    metadata = {"training_rows": len(train), "feature_count": X.shape[1],
+                "feature_columns": list(X.columns), "labels": labels,
+                "label_to_id": label_to_id, "id_to_label": {str(i): label for label, i in label_to_id.items()},
+                "primary_classifier": "xgboost_classifier.joblib" if primary == "xgboost" else "random_forest_classifier.joblib",
+                "models": {"random_forest": "RandomForestClassifier", "xgboost": "XGBClassifier", "unknown_detector": "IsolationForest"},
+                "evaluation_split": split_info, "unknown_detector": iso_info,
+                "feature_schema_version": 2, "normalization": "raw_behavior_counts_and_byte_entropy" if behavior else "fixed_nonnegative_saturation_v1",
+                "requires_retraining_legacy_artifacts": True}
+    report = {"validation": validation_results, **test_results, "unknown_detector": iso_info,
+              "primary_classifier": metadata["primary_classifier"], "split": split_info,
+              "selection_metric": "validation_macro_f1", "test_rows": len(test),
+              "limitation": "Proxy observations include impact indicators; results do not establish pre-impact detection or enterprise/zero-day efficacy"}
+    return {"random_forest": rf, "xgboost": xgb, "isolation_forest": iso}, metadata, report
 
 
 def main():
-    if not DATASET.exists():
-        raise SystemExit(f"[!] Missing dataset: {DATASET}")
-
-    print(f"[+] Loading dataset: {DATASET}")
-    df = pd.read_csv(DATASET)
-
-    print(f"[+] Original dataset shape: {df.shape}")
-    print("\nOriginal label counts:")
-    print(df["label"].value_counts().to_string())
-
-    df = balanced_sample(df, MAX_TRAIN_ROWS)
-
-    print(f"\n[+] Training dataset shape: {df.shape}")
-    print("\nTraining label counts:")
-    print(df["label"].value_counts().to_string())
-
-    feature_cols = [
-        c for c in df.columns
-        if c not in NON_FEATURE_COLS
-        and pd.api.types.is_numeric_dtype(df[c])
-    ]
-
-    print(f"\n[+] Feature columns: {len(feature_cols)}")
-
-    X = df[feature_cols].fillna(0)
-    y_text = df["label"].astype(str)
-
-    labels = sorted(y_text.unique())
-    label_to_id = {label: i for i, label in enumerate(labels)}
-    id_to_label = {i: label for label, i in label_to_id.items()}
-
-    y = y_text.map(label_to_id).astype(int)
-
-    X_train, X_test, y_train, y_test, y_text_train, y_text_test = train_test_split(
-        X,
-        y,
-        y_text,
-        test_size=0.2,
-        random_state=42,
-        stratify=y_text
-    )
-
-    print("\n[+] Training RandomForest classifier...")
-    rf = RandomForestClassifier(
-        n_estimators=150,
-        max_depth=22,
-        random_state=42,
-        n_jobs=-1,
-        class_weight="balanced"
-    )
-    rf.fit(X_train, y_text_train)
-
-    rf_result = evaluate_model(
-        "RandomForestClassifier",
-        rf,
-        X_test,
-        y_text_test,
-        labels
-    )
-
-    print("\n[+] Training XGBoost classifier...")
-    xgb = XGBClassifier(
-        n_estimators=250,
-        max_depth=7,
-        learning_rate=0.08,
-        subsample=0.85,
-        colsample_bytree=0.85,
-        objective="binary:logistic" if len(labels) == 2 else "multi:softprob",
-        eval_metric="logloss" if len(labels) == 2 else "mlogloss",
-        tree_method="hist",
-        random_state=42,
-        n_jobs=-1
-    )
-    xgb.fit(X_train, y_train)
-
-    y_xgb_pred_id = xgb.predict(X_test)
-    y_xgb_pred_text = pd.Series(y_xgb_pred_id).map(id_to_label).values
-
-    xgb_acc = accuracy_score(y_text_test, y_xgb_pred_text)
-    xgb_report_text = classification_report(y_text_test, y_xgb_pred_text)
-    xgb_report_dict = classification_report(y_text_test, y_xgb_pred_text, output_dict=True)
-    xgb_cm = confusion_matrix(y_text_test, y_xgb_pred_text, labels=labels)
-
-    print("\n===== XGBoostClassifier =====")
-    print(f"[+] Accuracy: {xgb_acc:.4f}")
-    print(xgb_report_text)
-
-    xgb_result = {
-        "accuracy": float(xgb_acc),
-        "classification_report": xgb_report_dict,
-        "confusion_matrix_labels": labels,
-        "confusion_matrix": xgb_cm.tolist(),
-    }
-
-    print("\n[+] Training IsolationForest unknown detector...")
-    iso_train = X_train
-    if len(iso_train) > MAX_ISOLATION_ROWS:
-        iso_train = iso_train.sample(n=MAX_ISOLATION_ROWS, random_state=42)
-
-    iso = IsolationForest(
-        n_estimators=150,
-        contamination=0.05,
-        random_state=42,
-        n_jobs=-1
-    )
-    iso.fit(iso_train)
-
-    # Choose primary model by validation accuracy
-    primary_classifier = "xgboost_classifier.joblib" if xgb_acc >= rf_result["accuracy"] else "random_forest_classifier.joblib"
-
-    metadata = {
-        "dataset": str(DATASET),
-        "training_rows": int(len(df)),
-        "feature_count": int(len(feature_cols)),
-        "feature_columns": feature_cols,
-        "labels": labels,
-        "label_to_id": label_to_id,
-        "id_to_label": {str(k): v for k, v in id_to_label.items()},
-        "models": {
-            "random_forest": "RandomForestClassifier",
-            "xgboost": "XGBClassifier",
-            "unknown_detector": "IsolationForest"
-        },
-        "primary_classifier": primary_classifier,
-        "lstm_status": "optional_future_work_for_api_sequence_or_time_series_data"
-    }
-
-    joblib.dump(rf, MODEL_DIR / "random_forest_classifier.joblib")
-    joblib.dump(xgb, MODEL_DIR / "xgboost_classifier.joblib")
-    joblib.dump(iso, MODEL_DIR / "unknown_behavior_detector.joblib")
-
-    # Backward compatible filename for current API.
-    if primary_classifier == "xgboost_classifier.joblib":
-        joblib.dump(xgb, MODEL_DIR / "ransomware_symptom_classifier.joblib")
-    else:
-        joblib.dump(rf, MODEL_DIR / "ransomware_symptom_classifier.joblib")
-
-    with open(MODEL_DIR / "model_metadata.json", "w", encoding="utf-8") as f:
-        json.dump(metadata, f, indent=2)
-
-    report = {
-        "dataset": str(DATASET),
-        "training_rows": int(len(df)),
-        "feature_count": int(len(feature_cols)),
-        "labels": labels,
-        "random_forest": rf_result,
-        "xgboost": xgb_result,
-        "primary_classifier": primary_classifier,
-        "unknown_detector": {
-            "model": "IsolationForest",
-            "training_rows": int(len(iso_train)),
-            "contamination": 0.05
-        }
-    }
-
-    with open(REPORT_DIR / "training_report.json", "w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2)
-
-    print("\n[+] Saved models:")
-    print(f"    {MODEL_DIR / 'random_forest_classifier.joblib'}")
-    print(f"    {MODEL_DIR / 'xgboost_classifier.joblib'}")
-    print(f"    {MODEL_DIR / 'unknown_behavior_detector.joblib'}")
-    print(f"    {MODEL_DIR / 'ransomware_symptom_classifier.joblib'}")
-    print(f"    {MODEL_DIR / 'model_metadata.json'}")
-    print(f"[+] Training report: {REPORT_DIR / 'training_report.json'}")
-    print(f"[+] Primary classifier: {primary_classifier}")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset", type=Path, default=DATASET)
+    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
+    parser.add_argument("--report-dir", type=Path, default=REPORT_DIR)
+    parser.add_argument("--allow-row-split", action="store_true", help="Explicit correlated demonstration only; no generalization claims")
+    args = parser.parse_args()
+    if not args.dataset.is_file():
+        parser.exit(1, f"Missing dataset: {args.dataset}. Ingest reviewed source data first; raw datasets are not included.\n")
+    try:
+        models, metadata, report = train_models(pd.read_csv(args.dataset), allow_row_split=args.allow_row_split)
+    except ValueError as exc:
+        parser.exit(1, f"Training validation failed: {exc}\n")
+    provenance = {"dataset": str(args.dataset), "dataset_sha256": hashlib.sha256(args.dataset.read_bytes()).hexdigest()}
+    metadata.update(provenance)
+    report.update(provenance)
+    args.model_dir.mkdir(parents=True, exist_ok=True)
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(models["random_forest"], args.model_dir / "random_forest_classifier.joblib")
+    joblib.dump(models["xgboost"], args.model_dir / "xgboost_classifier.joblib")
+    joblib.dump(models["isolation_forest"], args.model_dir / "unknown_behavior_detector.joblib")
+    primary = models["xgboost"] if metadata["primary_classifier"].startswith("xgboost") else models["random_forest"]
+    joblib.dump(primary, args.model_dir / "ransomware_symptom_classifier.joblib")
+    (args.model_dir / "model_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    (args.report_dir / "training_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    print(f"Saved candidate models: {args.model_dir}; report: {args.report_dir / 'training_report.json'}")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import datetime
 import json
@@ -116,7 +117,7 @@ def call_api(symptoms: dict, execute_response: bool = False):
     req = urllib.request.Request(
         url,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-API-Key": os.getenv("SYMPTOM_AI_API_KEY", "")},
         method="POST",
     )
 

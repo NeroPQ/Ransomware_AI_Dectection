@@ -2,6 +2,12 @@ from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import math
+import os
+import logging
+from uuid import uuid4
+from symptom_ai.auto_learning.review import is_approved
+from symptom_ai.models.evaluation import OUTCOME_FEATURES
 import time
 import urllib.request
 from collections import Counter
@@ -15,8 +21,9 @@ ERROR_DIR = Path("reports/live_monitoring/error_cases")
 CONTROL_DIR = Path("data/custom_sandbox/control")
 STOP_SIGNAL = CONTROL_DIR / "STOP_SIGNAL.json"
 
-API_URL = "http://localhost:8000/predict"
-API_EXPLAIN_URL = "http://localhost:8000/explain"
+API_BASE_URL = os.getenv("SYMPTOM_AI_API_BASE_URL", "http://localhost:8000").rstrip("/")
+API_URL = API_BASE_URL + "/predict"
+API_EXPLAIN_URL = API_BASE_URL + "/explain"
 
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 QUEUE_DIR.mkdir(parents=True, exist_ok=True)
@@ -42,9 +49,7 @@ EARLY_DETECTION_ALERT_TYPES = {
     "early_warning_known_ransomware",
     "early_warning_unknown_behavior",
     "early_containment_recommended",
-    "unknown_ransomware_contained",
-    "ransomware_impact_contained",
-    "missed_detection_infected",
+    "file_impact_containment_recommended",
     "learned_unknown_ransomware_detected",
 }
 
@@ -59,26 +64,28 @@ def read_new_lines(path: Path, offset: int):
     if not path.exists():
         return [], offset
 
-    with path.open("r", encoding="utf-8") as f:
-        f.seek(offset)
-        lines = f.readlines()
-        new_offset = f.tell()
-
     events = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            events.append(json.loads(line))
-        except Exception:
-            pass
-
-    return events, new_offset
+    with path.open("r", encoding="utf-8") as stream:
+        stream.seek(offset)
+        while True:
+            position = stream.tell()
+            line = stream.readline()
+            if not line:
+                return events, stream.tell()
+            if not line.endswith("\n"):
+                return events, position
+            try:
+                event = json.loads(line)
+                if not isinstance(event, dict) or not isinstance(event.get("event_type"), str):
+                    raise ValueError("Event requires event_type")
+                events.append(event)
+            except (ValueError, TypeError):
+                logging.getLogger(__name__).warning("Invalid event record skipped at offset %s", position)
 
 
 def clamp01(x):
-    return max(0.0, min(float(x), 1.0))
+    value = float(x)
+    return max(0.0, min(value, 1.0)) if math.isfinite(value) else 0.0
 
 
 def aggregate_symptoms(events):
@@ -91,6 +98,8 @@ def aggregate_symptoms(events):
 
     for e in events:
         extra = e.get("extra") or {}
+        if not isinstance(extra, dict):
+            extra = {}
         try:
             entropy_scores.append(float(extra.get("entropy_score", 0.0)))
         except Exception:
@@ -106,7 +115,7 @@ def aggregate_symptoms(events):
         "file_rename_burst": clamp01(count["file_rename"] / 6),
         "mass_file_modification": clamp01((count["file_write"] + count["file_rename"] + count["extension_change"]) / 12),
         "suspicious_extension_change": clamp01(count["extension_change"] / 4),
-        "high_entropy_write": clamp01(max(entropy_scores) if entropy_scores else count["high_entropy_write"] / 4),
+        "high_entropy_write": clamp01(max([count["high_entropy_write"] / 4] + entropy_scores)),
         "ransom_note_created": clamp01(count["ransom_note_created"] / 2),
         "multi_directory_impact": clamp01(len(paths) / 15),
         "user_document_impact_high": clamp01(len(paths) / 20),
@@ -116,7 +125,7 @@ def aggregate_symptoms(events):
         "process_tree_anomaly": clamp01(count["rare_process"] / 4),
         "process_injection_suspected": clamp01(count["process_injection_suspected"] / 3),
 
-        "memory_access_spike": clamp01(max(memory_scores) if memory_scores else count["memory_anomaly"] / 4),
+        "memory_access_spike": clamp01(max([count["memory_anomaly"] / 4] + memory_scores)),
         "memory_entropy_region_high": clamp01(count["memory_anomaly"] / 4),
         "anti_vm": clamp01(count["anti_vm"] / 3),
         "anti_analysis": clamp01((count["anti_vm"] + count["api_behavior"]) / 6),
@@ -157,7 +166,7 @@ def call_ai(symptoms):
     req = urllib.request.Request(
         API_URL,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-API-Key": os.getenv("SYMPTOM_AI_API_KEY", "")},
         method="POST",
     )
 
@@ -176,7 +185,7 @@ def call_explain(symptoms):
     req = urllib.request.Request(
         API_EXPLAIN_URL,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-API-Key": os.getenv("SYMPTOM_AI_API_KEY", "")},
         method="POST",
     )
 
@@ -299,7 +308,7 @@ def build_remediation(response, alert_type, damage):
             "Trigger emergency backup verification",
         ])
 
-    if alert_type in {"unknown_ransomware_contained", "missed_detection_infected"}:
+    if alert_type in {"file_impact_containment_recommended", "file_impact_needs_review"}:
         actions.extend([
             "Send unknown behavior to learning queue",
             "Schedule auto-retraining after validation threshold is reached",
@@ -341,20 +350,12 @@ def save_learning_case(window_id, events, symptoms, damage, ai_result, reason):
         "symptoms": symptoms,
         "damage": damage,
         "ai_result": ai_result,
-        "label": "known_ransomware_like",
+        "label": None,
         "family": "unknown_ransomware_candidate",
         "response_policy": "protective_lockdown",
         "learning_status": "pending_review",
-        "analyst_decision": None,
-        "reviewed_by": None,
-        "reviewed_at": None,
-        "review_note": None,
-        "signature_status": "not_created",
-        "safety_note": (
-            "Safe sandbox logs only. No real ransomware was executed. "
-            "Analyst approval is required before a learned signature "
-            "can be created."
-        ),
+        "confirmed_label": None,
+        "safety_note": "Safe sandbox logs only. No real ransomware was executed.",
     }
 
     out.write_text(json.dumps(case, indent=2), encoding="utf-8")
@@ -376,201 +377,57 @@ def save_error_case(window_id, events, symptoms, damage, ai_result):
 
 
 def load_learned_signatures():
-    if not LEARNED_SIGNATURES.exists():
-        return []
+    # Legacy automatically generated signature files are deliberately ignored.
+    signatures = []
+    for path in sorted(QUEUE_DIR.glob("learning_case_*.json")):
+        try:
+            case = json.loads(path.read_text(encoding="utf-8"))
+            if is_approved(case) and case["review"]["confirmed_label"] == "known_ransomware_like":
+                signatures.append({"signature_id": path.stem, "case": case})
+        except (ValueError, TypeError, OSError):
+            logging.getLogger(__name__).warning("Invalid learning case skipped: %s", path.name)
+    return signatures
 
-    try:
-        return json.loads(LEARNED_SIGNATURES.read_text(encoding="utf-8"))
-    except Exception:
-        return []
-
-
-def save_learned_signature(
-    window_id,
-    events,
-    damage,
-    approved_by,
-    review_note,
-    source_case_file,
-):
-    """
-    Save a learned signature only after an explicit analyst approval.
-    """
-    signatures = load_learned_signatures()
-
-    event_types = sorted({
-        event.get("event_type")
-        for event in events
-        if event.get("event_type")
-    })
-
-    scenario_types = sorted({
-        event.get("scenario_type")
-        for event in events
-        if event.get("scenario_type")
-    })
-
-    signature = {
-        "signature_id": f"learned_{window_id}",
-        "created_at": now_iso(),
-        "source_window_id": window_id,
-        "source_case_file": source_case_file,
-        "reason": (
-            "Analyst-approved safe-sandbox behavior signature. "
-            "Created only after manual review."
-        ),
-        "scenario_types": scenario_types,
-        "event_types": event_types,
-        "high_impact_event_count": damage.get(
-            "high_impact_event_count",
-            0,
-        ),
-        "host_count": damage.get("host_count", 0),
-        "label": "learned_unknown_ransomware",
-        "policy": "protective_lockdown",
-        "approval_status": "approved",
-        "approved_by": approved_by,
-        "approved_at": now_iso(),
-        "review_note": review_note,
-    }
-
-    existing_ids = {
-        signature_item.get("signature_id")
-        for signature_item in signatures
-    }
-
-    if signature["signature_id"] not in existing_ids:
-        signatures.append(signature)
-
-    LEARNED_SIGNATURES.parent.mkdir(parents=True, exist_ok=True)
-    LEARNED_SIGNATURES.write_text(
-        json.dumps(signatures, indent=2),
-        encoding="utf-8",
-    )
-
-    return str(LEARNED_SIGNATURES)
 
 def match_learned_signature(events):
-    """
-    Match only analyst-approved learned signatures.
-
-    Old or pending signatures are intentionally ignored.
-    """
-    signatures = load_learned_signatures()
-
-    if not signatures:
+    symptoms, damage = aggregate_symptoms(events)
+    current_counts = Counter(e.get("event_type") for e in events)
+    if damage["high_impact_event_count"] < 3 or len(set(current_counts) & HIGH_IMPACT_EVENTS) < 2:
         return None
-
-    current_event_types = {
-        event.get("event_type")
-        for event in events
-        if event.get("event_type")
-    }
-
-    current_scenario_types = {
-        event.get("scenario_type")
-        for event in events
-        if event.get("scenario_type")
-    }
-
-    for signature in signatures:
-        if signature.get("approval_status") != "approved":
+    for signature in load_learned_signatures():
+        reference_events = signature["case"].get("events") or []
+        if not reference_events:
             continue
-
-        signature_event_types = set(
-            signature.get("event_types", [])
-        )
-
-        signature_scenario_types = set(
-            signature.get("scenario_types", [])
-        )
-
-        shared_events = current_event_types & signature_event_types
-        shared_scenarios = (
-            current_scenario_types & signature_scenario_types
-        )
-
-        if shared_scenarios:
-            return {
-                "matched": True,
-                "signature_id": signature.get("signature_id"),
-                "reason": (
-                    "Matched analyst-approved learned scenario type."
-                ),
-                "shared_event_types": sorted(shared_events),
-                "signature": signature,
-            }
-
-        if len(shared_events) >= 3:
-            return {
-                "matched": True,
-                "signature_id": signature.get("signature_id"),
-                "reason": (
-                    "Matched multiple analyst-approved learned "
-                    "behavior event types."
-                ),
-                "shared_event_types": sorted(shared_events),
-                "signature": signature,
-            }
-
+        reference, reference_damage = aggregate_symptoms(reference_events)
+        counts = Counter(e.get("event_type") for e in reference_events)
+        if reference_damage["high_impact_event_count"] < 3 or len(set(counts) & HIGH_IMPACT_EVENTS) < 2:
+            continue
+        # Match observable rates and symptom magnitudes; scenario_type is never used.
+        types = set(counts) | set(current_counts)
+        rate_distance = sum(abs(counts[t] / len(reference_events) - current_counts[t] / len(events)) for t in types)
+        keys = set(symptoms) - OUTCOME_FEATURES
+        feature_distance = max(abs(symptoms[k] - reference[k]) for k in keys)
+        if rate_distance <= 0.2 and feature_distance <= 0.15:
+            return {"matched": True, "signature_id": signature["signature_id"],
+                    "reason": "Observable rates and symptoms match a reviewed case; still requires investigation",
+                    "shared_event_types": sorted(set(counts) & set(current_counts))}
     return None
 
 def decide_alert_type(ai_result, damage, policy, unknown_risk):
-    """
-    Combine XGBoost classification, Isolation Forest anomaly evidence,
-    policy recommendation, and file-impact rules.
-    """
     if "api_error" in ai_result:
         return "api_error_needs_review"
-
-    has_impact = bool(damage.get("has_file_impact"))
-    dangerous_policy = policy in {"isolate_and_backup", "protective_lockdown"}
-
-    predicted_label = str(
-        ai_result.get("predicted_label", "")
-    ).strip().lower()
-
-    xgb_ransomware = predicted_label == "known_ransomware_like"
-
-    # Early stage: no high-impact file behavior yet.
-    if not has_impact and xgb_ransomware:
-        return "early_warning_known_ransomware"
-
-    if not has_impact and unknown_risk == "high":
-        return "early_warning_unknown_behavior"
-
-    if not has_impact and dangerous_policy:
+    recommended = policy in {"isolate_and_backup", "protective_lockdown"}
+    impact = bool(damage.get("has_file_impact"))
+    if impact and recommended:
+        return "file_impact_containment_recommended"
+    if impact:
+        return "file_impact_needs_review"
+    if recommended:
         return "early_containment_recommended"
-
-    # Impact stage: combine XGBoost, anomaly signal, policy, and rules.
-    if has_impact and xgb_ransomware:
-        return "ransomware_impact_contained"
-
-    if has_impact and unknown_risk == "high" and dangerous_policy:
-        return "unknown_ransomware_contained"
-
-    if has_impact and dangerous_policy:
-        return "ransomware_impact_contained"
-
-    event_counts = damage.get("event_type_counts", {}) or {}
-
-    known_file_impact_count = sum(
-        int(event_counts.get(name, 0) or 0)
-        for name in (
-            "file_rename",
-            "extension_change",
-            "high_entropy_write",
-            "ransom_note_created",
-            "storage_write_spike",
-        )
-    )
-
-    if has_impact and known_file_impact_count >= 3:
-        return "ransomware_impact_contained"
-
-    if has_impact:
-        return "missed_detection_infected"
-
+    if ai_result.get("predicted_label") == "known_ransomware_like":
+        return "early_warning_known_ransomware"
+    if unknown_risk == "high" or policy == "early_warning":
+        return "early_warning_unknown_behavior"
     return "monitor"
 
 def write_stop_signal(window_id, alert_type, policy, damage):
@@ -588,23 +445,14 @@ def write_stop_signal(window_id, alert_type, policy, damage):
         "window_id": window_id,
         "alert_type": alert_type,
         "policy": policy,
-        "signal_type": "simulated_containment_stop",
-        "containment_triggered": True,
-        "triggered_after_file_impact": bool(
-            damage.get("has_file_impact")
-        ),
-        "sandbox_safety_stop": True,
-        "stop_reason": (
-            "confirmed_simulated_file_impact_with_"
-            "containment_policy"
-        ),
-        "reason": (
-            "Confirmed simulated file impact met the containment "
-            "condition. The safe sandbox runner should stop "
-            "generating additional events."
-        ),
-        "safety_scope": "safe_sandbox_only",
+        "reason": "AI watcher detected file impact and containment policy. Safe sandbox should stop generating events.",
         "damage": damage,
+        "signal_type": "simulated_containment_stop",
+        "safety_scope": "safe_sandbox_only",
+        "triggered_after_file_impact": bool(damage.get("has_file_impact")),
+        "response_mode": "simulation",
+        "containment_executed": False,
+        "simulated_stop_requested": True,
     }
 
     STOP_SIGNAL.parent.mkdir(parents=True, exist_ok=True)
@@ -614,6 +462,13 @@ def write_stop_signal(window_id, alert_type, policy, damage):
     )
 
     return str(STOP_SIGNAL)
+
+def scenario_event_index(event):
+    try:
+        return int(event.get("scenario_event_index", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
 
 def update_early_detection_metrics(events, alert_type):
     """
@@ -652,7 +507,7 @@ def update_early_detection_metrics(events, alert_type):
 
     indexed_events = sorted(
         events,
-        key=lambda event: int(event.get("scenario_event_index", 0) or 0),
+        key=lambda event: scenario_event_index(event),
     )
 
     for event in indexed_events:
@@ -673,7 +528,7 @@ def update_early_detection_metrics(events, alert_type):
             state["high_impact_events_seen"] += 1
 
         path_value = event.get("path")
-        if path_value:
+        if path_value and event.get("event_type") in HIGH_IMPACT_EVENTS:
             state["affected_paths_seen"].add(path_value)
 
     is_detection_alert = alert_type in EARLY_DETECTION_ALERT_TYPES
@@ -726,14 +581,14 @@ def evaluate_window(window_events, window_index):
     predicted = ai_result.get("predicted_label")
     unknown_risk = ai_result.get("unknown_risk")
 
-    window_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_window_{window_index}"
+    window_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_window_{window_index}_{uuid4().hex[:8]}"
 
-    if learned_match and damage.get("has_file_impact"):
+    if learned_match and damage.get("has_file_impact") and "api_error" not in ai_result:
         alert_type = "learned_unknown_ransomware_detected"
         policy = "protective_lockdown"
 
-        # Override model-level scores because learned signature is a confirmed memory match.
-        risk = 1.0
+        # Reviewed similarity is a heuristic recommendation, not a malware probability.
+        risk = max(float(risk or 0), 0.7)
         unknown_risk = "high"
         predicted = "learned_unknown_ransomware"
 
@@ -744,7 +599,7 @@ def evaluate_window(window_events, window_index):
         response["policy"] = "protective_lockdown"
         response["severity"] = "Critical"
         response["recommended_actions"] = [
-            "Known learned zero-day behavior detected from prior missed case",
+            "Behavior resembles a reviewed simulation case",
             "Immediately isolate affected host(s)",
             "Block further write/rename operations",
             "Preserve evidence and event timeline",
@@ -764,7 +619,7 @@ def evaluate_window(window_events, window_index):
 
     learned_signature_file = None
 
-    if alert_type == "missed_detection_infected":
+    if alert_type == "file_impact_needs_review":
         learning_case_file = save_learning_case(
             window_id,
             window_events,
@@ -785,33 +640,15 @@ def evaluate_window(window_events, window_index):
         )
 
     stop_signal_file = None
-
-    containment_triggered = bool(
-        damage.get("has_file_impact")
-        and (
-            alert_type in {
-                "unknown_ransomware_contained",
-                "ransomware_impact_contained",
-                "known_ransomware_contained",
-                "learned_unknown_ransomware_detected",
-            }
-            or policy in {"protective_lockdown", "isolate_and_backup"}
-        )
+    # Compatibility fields describe the cooperative sandbox request only.
+    # No endpoint containment or generator acknowledgement is implied.
+    sandbox_safety_stop = bool(
+        damage.get("has_file_impact") and "api_error" not in ai_result
+        and policy in {"protective_lockdown", "isolate_and_backup"}
     )
-
-    stop_reason = (
-        "confirmed_simulated_file_impact_with_containment_policy"
-        if containment_triggered
-        else None
-    )
-
-    triggered_after_file_impact = bool(
-        containment_triggered
-        and damage.get("has_file_impact")
-    )
-
-    # Only stops the safe demo runner, never a real endpoint.
-    sandbox_safety_stop = containment_triggered
+    containment_triggered = False
+    triggered_after_file_impact = sandbox_safety_stop
+    stop_reason = "simulated_file_impact_with_containment_recommendation" if sandbox_safety_stop else None
 
     explain_result = None
     dataset_evidence = None
@@ -829,6 +666,7 @@ def evaluate_window(window_events, window_index):
     remediation_actions = build_remediation(response, alert_type, damage)
 
     alert = {
+        "alert_schema_version": 2,
         "window_id": window_id,
         "time": now_iso(),
         "alert_type": alert_type,
@@ -863,17 +701,16 @@ def evaluate_window(window_events, window_index):
     }
 
 
-    # Early warnings do not stop the scenario.
-    # Only confirmed simulated impact triggers sandbox containment.
-    if containment_triggered:
-        stop_signal_file = write_stop_signal(
-            window_id,
-            alert_type,
-            policy,
-            damage,
-        )
+    if sandbox_safety_stop:
+        stop_signal_file = write_stop_signal(window_id, alert_type, policy, damage)
         alert["stop_signal_file"] = stop_signal_file
-        print(f"[AI WATCHER] stop signal written: {stop_signal_file}")
+    alert["suspicious"] = alert_type != "monitor"
+    alert["impact_observed"] = bool(damage.get("has_file_impact"))
+    alert["containment_recommended"] = policy in {"protective_lockdown", "isolate_and_backup"}
+    alert["containment_executed"] = False
+    alert["simulated_stop_requested"] = bool(stop_signal_file)
+    alert["simulated_containment_executed"] = False  # A stop request is not generator acknowledgement.
+    alert["response_mode"] = "simulation"
 
     append_jsonl(REPORT_DIR / "live_alerts.jsonl", alert)
     (REPORT_DIR / "current_status.json").write_text(json.dumps(alert, indent=2), encoding="utf-8")
@@ -903,6 +740,8 @@ def main():
     parser.add_argument("--poll", type=float, default=1.0)
     parser.add_argument("--reset-offset", action="store_true")
     args = parser.parse_args()
+    if args.window_events <= 0 or args.poll <= 0:
+        parser.error("window-events and poll must be positive")
 
     EVENT_LOG.parent.mkdir(parents=True, exist_ok=True)
     CONTROL_DIR.mkdir(parents=True, exist_ok=True)
@@ -935,18 +774,7 @@ def main():
                 offset = 0
                 buffer.clear()
 
-            new_events = []
-            with EVENT_LOG.open("r", encoding="utf-8") as f:
-                f.seek(offset)
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        new_events.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-                offset = f.tell()
+            new_events, offset = read_new_lines(EVENT_LOG, offset)
 
             if new_events:
                 buffer.extend(new_events)

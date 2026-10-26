@@ -1,3 +1,5 @@
+import math
+
 HIGH_WEIGHT_SYMPTOMS = {
     "file_write_burst": 0.18,
     "file_rename_burst": 0.18,
@@ -19,6 +21,9 @@ def calculate_symptom_risk(symptoms: dict) -> float:
     for symptom, weight in HIGH_WEIGHT_SYMPTOMS.items():
         value = float(symptoms.get(symptom, 0.0))
 
+        if not math.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError("Symptoms must be finite values in [0, 1]")
+
         if value > 0:
             score += value * weight
             used_weight += weight
@@ -26,7 +31,7 @@ def calculate_symptom_risk(symptoms: dict) -> float:
     if used_weight == 0:
         return 0.0
 
-    normalized = score / used_weight
+    normalized = score / sum(HIGH_WEIGHT_SYMPTOMS.values())
 
     if (
         symptoms.get("file_write_burst", 0) >= 0.7

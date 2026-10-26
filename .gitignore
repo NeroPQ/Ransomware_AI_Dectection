@@ -76,6 +76,13 @@ models/*
 data/live_watch/
 data/protected_docs/
 
+# Foundation pipeline outputs
+data/processed/
+reports/auto_learning/
+reports/behavior_*.csv
+reports/behavior_*.json
+reports/mitre_alerts.csv
+
 # Local source snapshots created during patching
 *.before_*
 

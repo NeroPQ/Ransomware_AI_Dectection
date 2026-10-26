@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from datetime import datetime
 import json
@@ -9,7 +10,7 @@ BASE = Path("data/simulated_enterprise")
 REPORT_DIR = Path("reports/incidents")
 UNKNOWN_DIR = Path("data/unknown_cases")
 
-API_URL = "http://localhost:8000/respond"
+API_URL = os.getenv("SYMPTOM_AI_API_BASE_URL", "http://localhost:8000").rstrip("/") + "/respond"
 
 HOSTS = [
     "host_hr",
@@ -43,7 +44,7 @@ def prepare_lab_files(files_per_folder=6):
 
             for i in range(1, files_per_folder + 1):
                 f = d / f"business_file_{i}.txt"
-                if not f.exists():
+                if not f.exists() and not f.is_symlink():
                     f.write_text(
                         f"Safe demo business document {i} for {host}/{folder}\n",
                         encoding="utf-8"
@@ -53,7 +54,7 @@ def prepare_lab_files(files_per_folder=6):
 def list_demo_files():
     return sorted([
         p for p in BASE.rglob("*")
-        if p.is_file()
+        if p.is_file() and not p.is_symlink() and p.name.startswith("business_file_")
         and not p.name.endswith(".simlocked")
         and not p.name.endswith(".ransom_note_demo.txt")
     ])
@@ -64,7 +65,7 @@ def call_ai(symptoms):
     req = urllib.request.Request(
         API_URL,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-API-Key": os.getenv("SYMPTOM_AI_API_KEY", "")},
         method="POST"
     )
 
@@ -78,53 +79,51 @@ def call_ai(symptoms):
         }
 
 
+def is_dummy_lab_file(path):
+    path = Path(path)
+    try:
+        return (not path.is_symlink() and path.is_file()
+                and path.resolve().is_relative_to(BASE.resolve())
+                and path.name.startswith("business_file_") and path.suffix == ".txt"
+                and path.read_text(encoding="utf-8").startswith("Safe demo business document"))
+    except (OSError, UnicodeError):
+        return False
+
+
 def simulate_touch_files(target_files, max_files):
     touched = []
-
-    for f in target_files[:max_files]:
-        if f.exists():
-            content = f.read_text(encoding="utf-8", errors="ignore")
-            f.write_text(content + "[safe-sim-touch]\n", encoding="utf-8")
-            touched.append(str(f))
-
+    for path in target_files[:max_files]:
+        if is_dummy_lab_file(path):
+            content = path.read_text(encoding="utf-8")
+            path.write_text(content + "[safe-sim-touch]\n", encoding="utf-8")
+            touched.append(str(path))
     return touched
 
 
 def simulate_safe_lock_files(target_files, max_files):
-    """
-    Safe simulated encryption:
-    - does NOT use real encryption
-    - only renames dummy lab files to .simlocked
-    - writes a marker showing this is a safe simulation
-    """
+    """Write separate lab markers; retain every original dummy document."""
     locked = []
-
-    for f in target_files[:max_files]:
-        if not f.exists():
+    for path in target_files[:max_files]:
+        if not is_dummy_lab_file(path):
             continue
-
-        locked_path = f.with_suffix(f.suffix + ".simlocked")
-
-        marker = (
-            "SAFE SIMULATION ONLY\n"
-            "This is not real encryption.\n"
-            "Original content was replaced only inside data/simulated_enterprise.\n"
-        )
-
-        locked_path.write_text(marker, encoding="utf-8")
-        f.unlink()
-        locked.append(str(locked_path))
-
+        marker_path = path.with_suffix(path.suffix + ".simlocked")
+        if marker_path.is_symlink():
+            continue
+        if not marker_path.exists():
+            marker_path.write_text("SAFE SIMULATION ONLY\nOriginal dummy content is preserved.\n", encoding="utf-8")
+        locked.append(str(marker_path))
     return locked
 
 
 def write_demo_note(host_dir):
+    host_dir = Path(host_dir)
+    if not host_dir.resolve().is_relative_to(BASE.resolve()):
+        raise ValueError("Demo notes must remain inside the lab directory")
     note = host_dir / "READ_ME_ransom_note_demo.txt"
-    note.write_text(
-        "SAFE RANSOMWARE NOTE SIMULATION ONLY.\n"
-        "No real ransomware was executed.\n",
-        encoding="utf-8"
-    )
+    if note.is_symlink():
+        raise ValueError("Demo note cannot be a symlink")
+    if not note.exists():
+        note.write_text("SAFE RANSOMWARE NOTE SIMULATION ONLY.\nNo real ransomware was executed.\n", encoding="utf-8")
     return str(note)
 
 
@@ -264,7 +263,8 @@ def save_unknown_learning_case(incident_id, stage, symptoms, ai_result, damage):
         "symptoms": symptoms,
         "ai_result": ai_result,
         "damage_summary": damage,
-        "learning_status": "queued_for_future_retraining",
+        "learning_status": "pending_review",
+        "confirmed_label": None,
         "safety_note": "No real ransomware was executed. Only dummy files inside data/simulated_enterprise were modified."
     }
 
@@ -323,7 +323,7 @@ def run_simulation(scenario="known", delay=1.0):
         for host in active_hosts:
             target_files.extend([
                 p for p in (BASE / host).rglob("*.txt")
-                if not p.name.endswith("ransom_note_demo.txt")
+                if is_dummy_lab_file(p)
             ])
 
         touched = simulate_touch_files(target_files, s["files_to_touch"])

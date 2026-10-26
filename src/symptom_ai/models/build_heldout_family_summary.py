@@ -14,6 +14,7 @@ def percent(value):
 
 def main():
     rows = []
+    schema_versions = set()
     macro = {
         "random_forest": [],
         "xgboost": [],
@@ -30,6 +31,7 @@ def main():
             raise SystemExit(f"Missing report: {path}")
 
         data = json.loads(path.read_text(encoding="utf-8"))
+        schema_versions.add(data.get("feature_schema_version", 1))
         integrity = data["split_integrity"]
 
         if integrity["train_test_sample_id_overlap"] != 0:
@@ -67,6 +69,9 @@ def main():
 
             rows.append(row)
             macro[model_key].append(metrics)
+
+    if len(schema_versions) != 1:
+        raise SystemExit("Cannot aggregate legacy and schema-2 family evaluations")
 
     macro_summary = {}
 
@@ -110,10 +115,10 @@ def main():
             "test subset. Therefore, the two runs must not be interpreted "
             "as 40,000 independent benign samples."
         ),
+        "feature_schema_version": next(iter(schema_versions)),
         "interpretation": (
-            "XGBoost achieved higher held-out ransomware recall across the "
-            "tested families, while Random Forest had slightly lower false "
-            "positive rates."
+            "Compare the reported recall and false-positive rates for each fixed model. "
+            "Legacy reports are historical; schema-2 results require regenerated source data."
         ),
     }
 
