@@ -17,7 +17,7 @@ import urllib.request
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "tests"))
 sys.path.insert(0, str(REPO))
-from test_foundation import synthetic_samples
+from test_foundation import synthetic_samples, corroborated_events
 from test_integration import family_fixture
 
 
@@ -104,7 +104,8 @@ def main():
                     originals = list((lab / "data/simulated_enterprise").rglob("business_file_*.txt"))
                     assert len(originals) == 72 and all(path.read_text().startswith("Safe demo business document") for path in originals)
                 # Invoke one watcher window over actual HTTP prediction and authenticated explanation.
-                code = "from symptom_ai.live_monitoring import live_log_ai_watcher as w; events=[{'event_type':'high_entropy_write'}]*4+[{'event_type':'extension_change'}]*4+[{'event_type':'file_write'}]*8+[{'event_type':'file_rename'}]*6; a=w.evaluate_window(events,1); assert a['unknown_detector_shadow']['status']=='available',a; assert not a['containment_executed']; assert a['simulated_stop_requested']; assert a['dataset_evidence']['status']=='ok',a"
+                code = "import sys; sys.path.insert(0, " + repr(str(REPO / "tests")) + "); from test_foundation import corroborated_events; from symptom_ai.live_monitoring import live_log_ai_watcher as w; a=w.evaluate_window(corroborated_events(),1); assert a['unknown_detector_shadow']['status']=='available',a; assert not a['containment_executed']; assert a['simulated_stop_requested']; assert a['dataset_evidence']['status']=='ok',a; assert a['policy_stage']=='containment_recommendation'; assert not a['detector_evidence']['classifier']['usable_for_policy']"
+
                 run("watcher over HTTP with shadow and explanation", sys.executable, "-c", code)
                 run("timeline helper", "bash", REPO / "check_demo_result.sh")
             finally:

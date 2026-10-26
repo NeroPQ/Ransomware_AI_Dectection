@@ -34,6 +34,10 @@ jobs:
         run: python -m symptom_ai.benchmark.baseline run --output /tmp/quality-protocol-smoke --seed 73 --sessions-per-profile 12
         env:
           PYTHONPATH: src
+      - name: Development-only typed evidence and policy comparison
+        run: python -m symptom_ai.benchmark.policy_development --output /tmp/policy-development --seed 93 --sessions-per-profile 6
+        env:
+          PYTHONPATH: src
       - name: Validate monitoring configuration
         run: |
           if GRAFANA_ADMIN_USER= GRAFANA_ADMIN_PASSWORD= docker compose -f monitoring/docker-compose.yml config --quiet 2>/dev/null; then

@@ -117,11 +117,11 @@ class SessionContractTests(unittest.TestCase):
         X = feature_matrix(frame)
         self.assertFalse(set(X) & {"profile", "window_index", "rule_hit", "label", "attack_onset_seconds", "analyst_review_required"})
 
-    def test_known_benign_path_cardinality_triggers_warning_without_models(self):
+    def test_known_benign_path_cardinality_is_no_longer_impact_or_warning(self):
         events = [{"event_type": "file_read", "host": "host", "path": f"one_directory/{i}.txt"} for i in range(15)]
         symptoms, _ = aggregate_symptoms(events)
-        self.assertEqual(symptoms["multi_directory_impact"], 1)
-        self.assertEqual(recommend_response(symptoms, "low")["policy"], "early_warning")
+        self.assertEqual(symptoms["multi_directory_impact"], 0)
+        self.assertEqual(recommend_response(symptoms, "low")["stage"], "monitor")
 
 
 class FrozenProtocolTests(unittest.TestCase):

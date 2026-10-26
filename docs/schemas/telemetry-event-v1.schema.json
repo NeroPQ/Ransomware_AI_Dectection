@@ -1,0 +1,333 @@
+{
+  "$defs": {
+    "EntropyObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "maximum": 8,
+          "minimum": 0,
+          "title": "After",
+          "type": "number"
+        },
+        "before": {
+          "anyOf": [
+            {
+              "maximum": 8,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Before"
+        },
+        "method": {
+          "const": "shannon_byte_histogram",
+          "title": "Method",
+          "type": "string"
+        },
+        "object_type": {
+          "enum": [
+            "file_content",
+            "memory_region"
+          ],
+          "title": "Object Type",
+          "type": "string"
+        },
+        "sample_bytes": {
+          "minimum": 256,
+          "title": "Sample Bytes",
+          "type": "integer"
+        },
+        "unit": {
+          "const": "bits_per_byte",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "object_type",
+        "unit",
+        "after",
+        "sample_bytes",
+        "method"
+      ],
+      "title": "EntropyObservation",
+      "type": "object"
+    },
+    "EventSource": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "synthetic",
+            "sysmon",
+            "reviewed_import",
+            "legacy_simulation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "title": "Provider",
+          "type": "string"
+        },
+        "record_id": {
+          "minLength": 1,
+          "title": "Record Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "provider",
+        "event_id",
+        "record_id"
+      ],
+      "title": "EventSource",
+      "type": "object"
+    },
+    "Indicator": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "kind": {
+          "enum": [
+            "suspected_beacon",
+            "possible_exfiltration",
+            "confirmed_c2",
+            "confirmed_exfiltration",
+            "destructive_content",
+            "ransom_note",
+            "recovery_tamper",
+            "injection"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "reference": {
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "reference",
+        "confidence"
+      ],
+      "title": "Indicator",
+      "type": "object"
+    },
+    "ProcessIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_id": {
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        },
+        "parent_entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Entity Id"
+        },
+        "pid": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pid"
+        }
+      },
+      "required": [
+        "entity_id"
+      ],
+      "title": "ProcessIdentity",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "destination_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Destination Path"
+    },
+    "entropy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EntropyObservation"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "host": {
+      "minLength": 1,
+      "title": "Host",
+      "type": "string"
+    },
+    "indicators": {
+      "items": {
+        "$ref": "#/$defs/Indicator"
+      },
+      "maxItems": 32,
+      "title": "Indicators",
+      "type": "array"
+    },
+    "observation_confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Observation Confidence",
+      "type": "number"
+    },
+    "operation": {
+      "enum": [
+        "file_read",
+        "file_touch",
+        "file_create",
+        "file_modify",
+        "file_rename",
+        "file_delete",
+        "file_extension_change",
+        "file_lock",
+        "file_scramble",
+        "ransom_note",
+        "network_connect",
+        "network_poll",
+        "process_create",
+        "process_access",
+        "memory_observation",
+        "recovery_change",
+        "other"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Path"
+    },
+    "process": {
+      "$ref": "#/$defs/ProcessIdentity"
+    },
+    "received_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Received At"
+    },
+    "scenario": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario"
+    },
+    "scenario_event_index": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Event Index"
+    },
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "source": {
+      "$ref": "#/$defs/EventSource"
+    },
+    "timestamp": {
+      "format": "date-time",
+      "title": "Timestamp",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "source",
+    "host",
+    "process",
+    "timestamp",
+    "operation",
+    "observation_confidence"
+  ],
+  "title": "TelemetryEvent",
+  "type": "object"
+}

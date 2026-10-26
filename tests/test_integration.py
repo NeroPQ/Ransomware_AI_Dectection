@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
 
-from test_foundation import temporary_cwd
+from test_foundation import temporary_cwd, corroborated_events
 from symptom_ai.api import main as api
 from symptom_ai.auto_learning import auto_retraining_pipeline as learning
 from symptom_ai.auto_learning.review import is_approved
@@ -119,20 +119,21 @@ class WatcherIntegrationTests(unittest.TestCase):
                 return [{"event_type": name, "scenario": "timing", "scenario_event_index": i,
                          "path": f"document-{i}"} for i, name in enumerate(names, start)]
             result = {"predicted_label": "known_ransomware_like", "response": {"policy": "early_warning"},
-                      "unknown_detector_shadow": {"status": "available", "changes_unknown_risk": False}}
-            first = self.evaluate(events(["file_read"] * 4, 1), result)
-            self.assertEqual(first["alert_type"], "early_warning_known_ransomware")
+                      "unknown_detector_shadow": {"status": "available", "changes_unknown_risk": False},
+                      "model_feature_semantics_version": 3, "input_feature_semantics_version": 3, "isolation_forest_prediction": -1}
+            first = self.evaluate(events(["extension_change"] * 4, 1), result)
+            self.assertEqual(first["alert_type"], "analyst_alert")
             self.assertFalse(first["simulated_stop_requested"])
             self.assertEqual(first["unknown_detector_shadow"], result["unknown_detector_shadow"])
             result["response"]["policy"] = "protective_lockdown"
-            second = self.evaluate(events(["high_entropy_write"] * 4, 5), result)
+            second = self.evaluate(corroborated_events(start=5, scenario="timing"), result)
             self.assertEqual(second["early_detection_metrics"]["detection_lead_events"], 1)
             self.assertTrue(second["simulated_stop_requested"])
             self.assertTrue(second["sandbox_safety_stop"])
             self.assertFalse(second["containment_triggered"])
             self.assertFalse(second["containment_executed"])
             self.assertFalse(second["simulated_containment_executed"])
-            self.assertEqual(second["alert_schema_version"], 2)
+            self.assertEqual(second["alert_schema_version"], 3)
             self.assertEqual(json.loads(watcher.STOP_SIGNAL.read_text())["containment_executed"], False)
 
     def test_api_failure_and_impact_only_never_request_stop(self):
@@ -152,10 +153,10 @@ class WatcherIntegrationTests(unittest.TestCase):
                 call_main(ablation, "--events", "events.jsonl", "--truth", "ransomware", "--case-id", "impact", "--window-events", 4)
             result = json.loads(Path("reports/evaluation/ablation_runs/impact.json").read_text())
             self.assertFalse(result["windows"][0]["full_hybrid_detected"])
-            self.assertEqual(result["windows"][0]["full_hybrid_alert_type"], "file_impact_needs_review")
+            self.assertEqual(result["windows"][0]["full_hybrid_alert_type"], "evidence_collection")
             self.assertFalse(watcher.STOP_SIGNAL.exists())
 
-    def test_reviewed_match_requests_stop_without_claiming_containment(self):
+    def test_reviewed_match_preserves_evidence_without_overriding_containment_gate(self):
         with temporary_cwd():
             watcher.QUEUE_DIR.mkdir(parents=True)
             events = [{"event_type": "extension_change"}] * 4 + [{"event_type": "high_entropy_write"}] * 4
@@ -163,8 +164,9 @@ class WatcherIntegrationTests(unittest.TestCase):
             path = Path(watcher.save_learning_case("positive", events, symptoms, damage, {}, "fixture"))
             analyst_review.review_case(path, "approve", "reviewer", "Synthetic reviewed signature")
             alert = self.evaluate(events, {"predicted_label": "benign", "response": {"policy": "monitor_only"}})
-            self.assertEqual(alert["alert_type"], "learned_unknown_ransomware_detected")
-            self.assertTrue(alert["simulated_stop_requested"])
+            self.assertEqual(alert["alert_type"], "analyst_alert")
+            self.assertTrue(alert["detector_evidence"]["reviewed_signature"]["hit"])
+            self.assertFalse(alert["simulated_stop_requested"])
             self.assertFalse(alert["containment_executed"])
             self.assertFalse(alert["containment_triggered"])
 

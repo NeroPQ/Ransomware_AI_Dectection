@@ -28,8 +28,18 @@ def classifier_candidates():
     return rf, xgb
 
 
+def dataset_semantics_version(df):
+    if "feature_semantics_version" not in df:
+        return 2
+    versions = set(df["feature_semantics_version"].tolist())
+    if len(versions) != 1 or not versions <= {2, 3}:
+        raise ValueError("Mixed or unsupported feature semantics; re-extract a consistently versioned dataset")
+    return int(next(iter(versions)))
+
+
 def train_models(df, *, behavior=False, allow_row_split=False):
     validate_labels(df)
+    semantics = dataset_semantics_version(df)
     from symptom_ai.models.evaluation import BEHAVIOR_FEATURES
     X = feature_matrix(df, BEHAVIOR_FEATURES, normalized=False) if behavior else feature_matrix(df)
     train, validation, test, split_info = split_dataset(df, X, allow_row_split=allow_row_split)
@@ -59,7 +69,9 @@ def train_models(df, *, behavior=False, allow_row_split=False):
                 "primary_classifier": "xgboost_classifier.joblib" if primary == "xgboost" else "random_forest_classifier.joblib",
                 "models": {"random_forest": "RandomForestClassifier", "xgboost": "XGBClassifier", "unknown_detector": "IsolationForest"},
                 "evaluation_split": split_info, "unknown_detector": iso_info,
-                "feature_schema_version": 2, "normalization": "raw_behavior_counts_and_byte_entropy" if behavior else "fixed_nonnegative_saturation_v1",
+                "feature_schema_version": 2, "feature_semantics_version": semantics,
+                "normalization": ("raw_behavior_counts_and_byte_entropy" if behavior else
+                                  "typed_behavior_v3_observed_span_density_v1" if semantics == 3 else "fixed_nonnegative_saturation_v1"),
                 "requires_retraining_legacy_artifacts": True}
     report = {"validation": validation_results, **test_results, "unknown_detector": iso_info,
               "primary_classifier": metadata["primary_classifier"], "split": split_info,

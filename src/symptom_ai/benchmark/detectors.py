@@ -6,8 +6,7 @@ import pandas as pd
 
 from symptom_ai.models.evaluation import feature_matrix, fit_benign_detector, metrics
 from symptom_ai.models.train_symptom_models import classifier_candidates
-from symptom_ai.live_monitoring.live_log_ai_watcher import decide_alert_type, EARLY_DETECTION_ALERT_TYPES
-from symptom_ai.response_engine.response_policy import recommend_response
+from symptom_ai.benchmark.legacy_v2 import decide_alert_type, EARLY_DETECTION_ALERT_TYPES, recommend_response
 from symptom_ai.benchmark.sessions import frame_from_windows
 from symptom_ai.benchmark.quality_metrics import detection_metrics
 

@@ -10,6 +10,8 @@ from symptom_ai.dataset_ingestion.validation import VALID_LABELS
 
 def case_digest(case):
     evidence = {key: case.get(key) for key in ("symptoms", "events", "damage")}
+    if "feature_semantics_version" in case:
+        evidence["feature_semantics_version"] = case["feature_semantics_version"]
     return hashlib.sha256(json.dumps(evidence, sort_keys=True, allow_nan=False).encode()).hexdigest()
 
 

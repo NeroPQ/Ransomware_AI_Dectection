@@ -95,3 +95,6 @@ reports/evaluation/benign_workload_benchmark_preliminary.json
 # Disposable detection-quality inputs, candidate models and per-window outputs
 reports/detection_quality_baseline/artifacts/
 reports/detection_quality_baseline/test_predictions.jsonl
+
+# Task 03 reproducible synthetic logs and development-only candidate models
+reports/detection_semantics/artifacts/

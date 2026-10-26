@@ -37,12 +37,17 @@ def load_learning_cases():
     return cases
 
 
-def cases_to_dataframe(cases, base_columns):
+def cases_to_dataframe(cases, base_columns, feature_semantics_version=2):
     rows = []
     for case in cases:
         if not is_approved(case):
             continue
+        case_version = case.get("feature_semantics_version", case.get("damage", {}).get("feature_semantics_version", 2))
+        if case_version != feature_semantics_version:
+            raise ValueError("Reviewed case/base feature semantics differ; re-extract and review a separate versioned dataset")
         row = {column: 0.0 for column in base_columns}
+        if "feature_semantics_version" in row:
+            row["feature_semantics_version"] = feature_semantics_version
         for key, value in case["symptoms"].items():
             if key in row:
                 row[key] = value
@@ -77,7 +82,8 @@ def main():
     base = pd.read_csv(BASE_DATASET)
     if "sample_id" not in base or base["sample_id"].isna().any() or base["sample_id"].duplicated().any():
         raise SystemExit("Reviewed retraining requires stable, nonmissing, unique sample_id values in the base dataset")
-    new_rows = cases_to_dataframe(cases, list(base.columns))
+    from symptom_ai.models.train_symptom_models import dataset_semantics_version
+    new_rows = cases_to_dataframe(cases, list(base.columns), dataset_semantics_version(base))
     final = pd.concat([base, new_rows], ignore_index=True).drop_duplicates(subset=["sample_id"])
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     version_name = f"candidate_{stamp()}"
