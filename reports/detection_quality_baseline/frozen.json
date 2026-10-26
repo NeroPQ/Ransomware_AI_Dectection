@@ -1,0 +1,163 @@
+{
+  "development": {
+    "anomaly_calibration": {
+      "benign_calibration_rows": 312,
+      "limitation": "Anomalies are not confirmed malware and do not prove zero-day detection",
+      "observed_validation_fpr": 0.05128205128205128,
+      "target_validation_fpr": 0.05,
+      "threshold": -0.5736779147001317,
+      "threshold_comparison": "score_samples < threshold",
+      "training": "benign_only",
+      "training_rows": 990
+    },
+    "classifier_candidates": {
+      "random_forest": {
+        "accuracy": 1.0,
+        "classification_report": {
+          "accuracy": 1.0,
+          "benign": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 312.0
+          },
+          "known_ransomware_like": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 120.0
+          },
+          "macro avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 432.0
+          },
+          "weighted avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 432.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            312,
+            0
+          ],
+          [
+            0,
+            120
+          ]
+        ],
+        "confusion_matrix_labels": [
+          "benign",
+          "known_ransomware_like"
+        ],
+        "f1": 1.0,
+        "false_positive_rate": 0.0,
+        "per_class_false_positive_rate": {
+          "benign": 0.0,
+          "known_ransomware_like": 0.0
+        },
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "xgboost": {
+        "accuracy": 1.0,
+        "classification_report": {
+          "accuracy": 1.0,
+          "benign": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 312.0
+          },
+          "known_ransomware_like": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 120.0
+          },
+          "macro avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 432.0
+          },
+          "weighted avg": {
+            "f1-score": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 432.0
+          }
+        },
+        "confusion_matrix": [
+          [
+            312,
+            0
+          ],
+          [
+            0,
+            120
+          ]
+        ],
+        "confusion_matrix_labels": [
+          "benign",
+          "known_ransomware_like"
+        ],
+        "f1": 1.0,
+        "false_positive_rate": 0.0,
+        "per_class_false_positive_rate": {
+          "benign": 0.0,
+          "known_ransomware_like": 0.0
+        },
+        "precision": 1.0,
+        "recall": 1.0
+      }
+    },
+    "classifier_decision": "model.predict argmax; no test-derived threshold",
+    "hybrid_policy": "unchanged foundation watcher and response policy",
+    "reviewed_signatures": "disabled in this baseline; no approval database read",
+    "selected_classifier": "random_forest",
+    "selection_rule": "validation macro-F1; RF wins exact tie; fixed model hyperparameters"
+  },
+  "feature_columns": [
+    "anti_analysis",
+    "anti_vm",
+    "c2_beaconing",
+    "data_exfiltration_pattern",
+    "file_read_burst",
+    "file_rename_burst",
+    "file_write_burst",
+    "high_entropy_write",
+    "mass_file_modification",
+    "memory_access_spike",
+    "memory_entropy_region_high",
+    "multi_directory_impact",
+    "network_api_usage",
+    "process_injection_suspected",
+    "process_tree_anomaly",
+    "ransom_note_created",
+    "rare_process_name",
+    "storage_write_spike",
+    "suspicious_extension_change",
+    "suspicious_process_spawn",
+    "user_document_impact_high"
+  ],
+  "implementation_sha256": "bd7275720f58e3463e366f9666563f97c9755be89af220e8214e8472907d98d0",
+  "manifest_sha256": "9f51233a11f8661218fbeb865d67e56dcffbfc39553fc4b8432fb2b824be5e0e",
+  "model_sha256": "34cd6cc2c7277b22eceb40b5492e604790e3958259f08d109745a604049a89a5",
+  "protocol_version": 1,
+  "selection_and_calibration": "fixed RF/XGB specifications; validation macro-F1 selection; benign validation nominal 5% IF FPR; unchanged hybrid rules",
+  "test_features_used_for_fitting_or_calibration": false,
+  "validation_diagnostics_sha256": "4ee29262d6bed11303315ca42f3dd2a36fb4bdb1b06c823aa679458201c584b9",
+  "versions": {
+    "joblib": "1.5.3",
+    "numpy": "2.4.6",
+    "pandas": "3.0.3",
+    "python": "3.14.7",
+    "scikit-learn": "1.8.0",
+    "xgboost": "3.4.1"
+  }
+}

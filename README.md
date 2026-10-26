@@ -228,3 +228,74 @@ untouched. `SYMPTOM_AI_API_BASE_URL` optionally selects a different API base URL
 for watcher and ablation clients. The verification script uses synthetic fixtures
 and validates interfaces only. Monitoring containers are configuration-checked;
 container startup and dashboard rendering remain outside this verification.
+
+## Detection-quality baseline (Task 02)
+
+The offline baseline measures the current detector without deploying rule changes.
+It separates **rule-only, classifier-only, anomaly-only and hybrid** results and
+uses independently seeded synthetic endpoint sessions for six benign workloads:
+backup, compression, updates, cloud sync, development tools and administration.
+There are also three scripted positive profiles. No workload operation, malware,
+response API, stop signal, host isolation or process termination is executed.
+
+Read the [fixed protocol](docs/DETECTION_QUALITY_PROTOCOL.md),
+[findings and verification](docs/DETECTION_QUALITY_BASELINE.md) and
+[recorded synthetic report](reports/detection_quality_baseline/report.md).
+The classifier's success on shared templates is not a real-world accuracy claim.
+The hybrid's substantial false alarms are retained as baseline findings.
+
+Use a fresh output directory for each reproducibility run:
+
+```bash
+export PYTHONPATH=src
+python -m symptom_ai.benchmark.baseline prepare --output /tmp/quality-run --seed 20261027
+python -m symptom_ai.benchmark.baseline calibrate --output /tmp/quality-run
+# Inspect validation_diagnostics.json and frozen.json; no test-driven tuning.
+python -m symptom_ai.benchmark.baseline evaluate --output /tmp/quality-run
+```
+
+`run` performs all three steps with the same defaults (30 sessions/profile,
+eight simulated one-minute windows/session). Checksums bind the input partitions,
+code, model, diagnostics and dependency versions. Calibration parses development
+rows only. Recalibration and overwriting final results are refused. After reading
+a final result, treat that holdout as retired for future optimization.
+
+JSON reports include confusion counts, positive-class precision/recall/F1/FPR,
+per-profile results, session-cluster bootstrap intervals, and explicit timing
+availability. **Real endpoint-hour and latency fields remain null.** Simulated
+rates use recorded simulated exposure, with one alert per alerting window; latency
+uses scripted onset and window-end detection, including missed-session counts.
+There is no incident deduplication or measured enterprise exposure.
+
+No genuine reviewed external data is installed in this environment. The source
+inventory records that limitation. Verify the ingestion/training contract with:
+
+```bash
+python scripts/verify_quality_baseline.py
+```
+
+This uses 15 explicitly synthetic raw fixture CSVs, fixed normalization,
+unification, the actual grouped foundation trainer and API-compatible candidate
+artifacts. It never reports those fixtures as genuine source performance.
+
+To admit genuine feature data after source-specific mapping/schema/label review,
+create a local JSON manifest with `schema_version: 2`,
+`normalization: "fixed_nonnegative_saturation_v1"`,
+`source_kind: "captured_feature_data"`, `reviewer`, `reviewed_at`, `review_notes`,
+and a `sources` list. Each item needs `path` (relative to the manifest), `sha256`,
+`adapter: "normalized_symptoms_v2"`, `provenance` and `label_definition`. Each CSV
+must include unique `sample_id`, `dataset_source`, explicit reviewed `label`,
+grouping provenance and recognized observation columns. Then run:
+
+```bash
+python -m symptom_ai.benchmark.baseline reviewed-sources \
+  --review-manifest /path/to/reviewed-sources.json --output /tmp/reviewed-candidate
+```
+
+This creates an isolated unified dataset and training candidate. It refuses
+unverified labels, changed inputs and insufficient independent groups. Source
+presence and a local reviewer string do not authenticate reviewers or prove label
+quality. Raw source adapters require their own schema review; no automatic download
+or real malware execution is implemented. Identical feature names across fixed
+raw-proxy transforms and watcher count-derived symptoms do not prove compatible
+units or observation semantics. Candidate promotion remains manual.

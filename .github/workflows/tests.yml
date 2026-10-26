@@ -26,6 +26,14 @@ jobs:
         run: python scripts/verify_integration.py --summary /tmp/integration-summary.json
         env:
           PYTHONPATH: src
+      - name: Verify reviewed-source ingestion contract
+        run: python scripts/verify_quality_baseline.py
+        env:
+          PYTHONPATH: src
+      - name: Synthetic quality protocol smoke check
+        run: python -m symptom_ai.benchmark.baseline run --output /tmp/quality-protocol-smoke --seed 73 --sessions-per-profile 12
+        env:
+          PYTHONPATH: src
       - name: Validate monitoring configuration
         run: |
           if GRAFANA_ADMIN_USER= GRAFANA_ADMIN_PASSWORD= docker compose -f monitoring/docker-compose.yml config --quiet 2>/dev/null; then

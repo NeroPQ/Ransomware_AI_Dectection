@@ -1,0 +1,555 @@
+{
+  "active_symptoms_in_hybrid_false_alarms": {
+    "anti_analysis": 52,
+    "c2_beaconing": 40,
+    "data_exfiltration_pattern": 30,
+    "file_read_burst": 108,
+    "file_write_burst": 152,
+    "high_entropy_write": 48,
+    "mass_file_modification": 75,
+    "multi_directory_impact": 255,
+    "network_api_usage": 61,
+    "storage_write_spike": 82,
+    "suspicious_process_spawn": 34,
+    "user_document_impact_high": 241
+  },
+  "benign_signal_combinations": {
+    "rule=False,classifier=False,anomaly=False,hybrid=False": 9,
+    "rule=False,classifier=False,anomaly=False,hybrid=True": 249,
+    "rule=False,classifier=False,anomaly=True,hybrid=False": 4,
+    "rule=False,classifier=False,anomaly=True,hybrid=True": 7,
+    "rule=True,classifier=False,anomaly=False,hybrid=False": 38,
+    "rule=True,classifier=False,anomaly=True,hybrid=False": 5
+  },
+  "benign_windows": 312,
+  "feature_sensitivity": [
+    {
+      "feature": "anti_analysis",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 6
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "c2_beaconing",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 5
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "data_exfiltration_pattern",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 5
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "file_read_burst",
+      "training_benign_median": 0.5,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 6
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "file_rename_burst",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 4
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "file_write_burst",
+      "training_benign_median": 0.7,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 3,
+          "removed_false_alarms": 5
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "high_entropy_write",
+      "training_benign_median": 0.5381125301494385,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 2
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "mass_file_modification",
+      "training_benign_median": 0.5,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 1,
+          "removed_false_alarms": 6
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "memory_access_spike",
+      "training_benign_median": 0.19481783955452658,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 1,
+          "removed_false_alarms": 6
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "multi_directory_impact",
+      "training_benign_median": 1.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 4
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "network_api_usage",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 6
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "process_tree_anomaly",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 2,
+          "removed_false_alarms": 4
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "rare_process_name",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 3
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    },
+    {
+      "feature": "suspicious_process_spawn",
+      "training_benign_median": 0.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 8
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 1
+        }
+      }
+    },
+    {
+      "feature": "user_document_impact_high",
+      "training_benign_median": 1.0,
+      "validation_median_replacement": {
+        "anomaly_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 3
+        },
+        "classifier_only": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        },
+        "hybrid": {
+          "introduced_false_alarms": 0,
+          "removed_false_alarms": 0
+        }
+      }
+    }
+  ],
+  "feature_statistics": {
+    "anti_analysis": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "anti_vm": {
+      "benign_train_max": 0.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "c2_beaconing": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "data_exfiltration_pattern": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "file_read_burst": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.6,
+      "validation_benign_outside_training_range": 0
+    },
+    "file_rename_burst": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "file_write_burst": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.7,
+      "validation_benign_outside_training_range": 0
+    },
+    "high_entropy_write": {
+      "benign_train_max": 0.9599893242190931,
+      "benign_train_min": 0.32624811661448405,
+      "benign_validation_median": 0.5385281523283034,
+      "validation_benign_outside_training_range": 0
+    },
+    "mass_file_modification": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.5833333333333334,
+      "validation_benign_outside_training_range": 0
+    },
+    "memory_access_spike": {
+      "benign_train_max": 0.1999981825284808,
+      "benign_train_min": 0.14589533684595127,
+      "benign_validation_median": 0.1963680591063146,
+      "validation_benign_outside_training_range": 0
+    },
+    "memory_entropy_region_high": {
+      "benign_train_max": 0.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "multi_directory_impact": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.4666666666666667,
+      "benign_validation_median": 1.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "network_api_usage": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "process_injection_suspected": {
+      "benign_train_max": 0.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "process_tree_anomaly": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "ransom_note_created": {
+      "benign_train_max": 0.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "rare_process_name": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "storage_write_spike": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "suspicious_extension_change": {
+      "benign_train_max": 0.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "suspicious_process_spawn": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.0,
+      "benign_validation_median": 0.0,
+      "validation_benign_outside_training_range": 0
+    },
+    "user_document_impact_high": {
+      "benign_train_max": 1.0,
+      "benign_train_min": 0.35,
+      "benign_validation_median": 1.0,
+      "validation_benign_outside_training_range": 0
+    }
+  },
+  "hybrid_false_alarm_alert_types": {
+    "early_containment_recommended": 56,
+    "early_warning_unknown_behavior": 200
+  },
+  "hybrid_false_alarm_policies": {
+    "early_warning": 200,
+    "isolate_and_backup": 26,
+    "protective_lockdown": 30
+  },
+  "impact_review_suppressed_classifier_or_anomaly": 52,
+  "method_results": {
+    "anomaly_only": {
+      "benign_endpoint_hours": null,
+      "detection_latency_seconds": null,
+      "f1": 0.4,
+      "false_alerts_per_endpoint_hour": null,
+      "false_alerts_per_simulated_endpoint_hour": 3.0769230769230766,
+      "false_negative": 86,
+      "false_positive": 16,
+      "fpr": 0.05128205128205128,
+      "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+      "precision": 0.68,
+      "recall": 0.2833333333333333,
+      "simulated_benign_endpoint_hours": 5.2,
+      "simulated_detection_latency_seconds": {
+        "detected_sessions": 20,
+        "eligible_attack_sessions": 20,
+        "median_among_detected": 60.0,
+        "median_impact_lead_among_detected": 60.0,
+        "missed_sessions": 0,
+        "p95_among_detected": 123.00000000000004,
+        "resolution": "window end; missed sessions are censored, never assigned zero latency",
+        "session_detection_rate": 1.0
+      },
+      "true_negative": 296,
+      "true_positive": 34,
+      "windows": 432
+    },
+    "classifier_only": {
+      "benign_endpoint_hours": null,
+      "detection_latency_seconds": null,
+      "f1": 1.0,
+      "false_alerts_per_endpoint_hour": null,
+      "false_alerts_per_simulated_endpoint_hour": 0.0,
+      "false_negative": 0,
+      "false_positive": 0,
+      "fpr": 0.0,
+      "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+      "precision": 1.0,
+      "recall": 1.0,
+      "simulated_benign_endpoint_hours": 5.2,
+      "simulated_detection_latency_seconds": {
+        "detected_sessions": 20,
+        "eligible_attack_sessions": 20,
+        "median_among_detected": 60.0,
+        "median_impact_lead_among_detected": 60.0,
+        "missed_sessions": 0,
+        "p95_among_detected": 60.0,
+        "resolution": "window end; missed sessions are censored, never assigned zero latency",
+        "session_detection_rate": 1.0
+      },
+      "true_negative": 312,
+      "true_positive": 120,
+      "windows": 432
+    },
+    "hybrid": {
+      "benign_endpoint_hours": null,
+      "detection_latency_seconds": null,
+      "f1": 0.33995584988962474,
+      "false_alerts_per_endpoint_hour": null,
+      "false_alerts_per_simulated_endpoint_hour": 49.230769230769226,
+      "false_negative": 43,
+      "false_positive": 256,
+      "fpr": 0.8205128205128205,
+      "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+      "precision": 0.23123123123123124,
+      "recall": 0.6416666666666667,
+      "simulated_benign_endpoint_hours": 5.2,
+      "simulated_detection_latency_seconds": {
+        "detected_sessions": 20,
+        "eligible_attack_sessions": 20,
+        "median_among_detected": 60.0,
+        "median_impact_lead_among_detected": 60.0,
+        "missed_sessions": 0,
+        "p95_among_detected": 60.0,
+        "resolution": "window end; missed sessions are censored, never assigned zero latency",
+        "session_detection_rate": 1.0
+      },
+      "true_negative": 56,
+      "true_positive": 77,
+      "windows": 432
+    },
+    "rule_only": {
+      "benign_endpoint_hours": null,
+      "detection_latency_seconds": null,
+      "f1": 0.4174757281553398,
+      "false_alerts_per_endpoint_hour": null,
+      "false_alerts_per_simulated_endpoint_hour": 8.269230769230768,
+      "false_negative": 77,
+      "false_positive": 43,
+      "fpr": 0.13782051282051283,
+      "latency_note": "Pre-onset warnings are false positives, not successful attack detections",
+      "precision": 0.5,
+      "recall": 0.35833333333333334,
+      "simulated_benign_endpoint_hours": 5.2,
+      "simulated_detection_latency_seconds": {
+        "detected_sessions": 11,
+        "eligible_attack_sessions": 20,
+        "median_among_detected": 180.0,
+        "median_impact_lead_among_detected": -60.0,
+        "missed_sessions": 9,
+        "p95_among_detected": 180.0,
+        "resolution": "window end; missed sessions are censored, never assigned zero latency",
+        "session_detection_rate": 0.55
+      },
+      "true_negative": 269,
+      "true_positive": 43,
+      "windows": 432
+    }
+  },
+  "partition": "validation_only",
+  "rule_false_alarm_event_counts": {
+    "build_artifact_write": 234,
+    "file_read": 227,
+    "file_rename": 237,
+    "file_write": 254,
+    "process_spawn": 222,
+    "rare_process": 255
+  },
+  "sensitivity_note": "Median replacement with training-benign medians, holding raw impact flags fixed; correlated/off-manifold probes are not causal attribution or approved fixes"
+}
